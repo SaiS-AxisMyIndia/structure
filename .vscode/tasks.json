@@ -1,0 +1,120 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Mock Server",
+      "type": "shell",
+      "command": "npm run mock-server",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "close": false
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(never matches)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Mock API server (listening|already running)"
+        }
+      }
+    },
+    {
+      "label": "adb reverse mock server",
+      "type": "shell",
+      "command": "adb reverse tcp:4000 tcp:4000",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Prepare Android DEV (mock server + adb reverse)",
+      "dependsOn": ["Start Mock Server", "adb reverse mock server"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run iOS - DEV",
+      "type": "shell",
+      "command": "npx react-native run-ios --scheme components_rn",
+      "options": {
+        "env": { "ENVFILE": ".env.dev" }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "close": false
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(never matches)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Successfully launched the app|BUILD FAILED"
+        }
+      }
+    },
+    {
+      "label": "Run iOS - UAT",
+      "type": "shell",
+      "command": "npx react-native run-ios --scheme components_rn",
+      "options": {
+        "env": { "ENVFILE": ".env.uat" }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "close": false
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(never matches)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Successfully launched the app|BUILD FAILED"
+        }
+      }
+    },
+    {
+      "label": "Run iOS - PROD",
+      "type": "shell",
+      "command": "npx react-native run-ios --scheme components_rn",
+      "options": {
+        "env": { "ENVFILE": ".env.prod" }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "close": false
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(never matches)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Successfully launched the app|BUILD FAILED"
+        }
+      }
+    },
+    {
+      "label": "Prepare iOS DEV (mock server + run-ios)",
+      "dependsOn": ["Start Mock Server", "Run iOS - DEV"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    }
+  ]
+}

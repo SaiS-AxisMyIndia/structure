@@ -1,0 +1,51 @@
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+platform :ios, min_ios_version_supported
+prepare_react_native_project!
+
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target 'components_rn' do
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  post_install do |installer|
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+      # :ccache_enabled => true
+    )
+
+    # react-native-sound's podspec doesn't declare AVFoundation, which its
+    # RNSound.mm relies on (AVAudioSession category/mode constants). The
+    # xcconfig files are already written to disk by the time post_install
+    # hooks run (only the .xcodeproj itself is saved afterward), so this
+    # rewrites the OTHER_LDFLAGS line in place on the real files rather than
+    # mutating an installer object that won't get persisted.
+    installer.aggregate_targets.each do |aggregate_target|
+      aggregate_target.xcconfigs.each do |config_name, _|
+        xcconfig_path = aggregate_target.xcconfig_path(config_name)
+        content = File.read(xcconfig_path)
+        unless content.include?('-framework AVFoundation')
+          content = content.sub(/^OTHER_LDFLAGS = (.*)$/, 'OTHER_LDFLAGS = \1 -framework AVFoundation')
+          File.write(xcconfig_path, content)
+        end
+      end
+    end
+  end
+end

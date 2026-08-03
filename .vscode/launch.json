@@ -1,0 +1,96 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Android - DEV",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "android",
+      "runArguments": ["--mode", "devDebug"],
+      "preLaunchTask": "Prepare Android DEV (mock server + adb reverse)"
+    },
+    {
+      "name": "Android - UAT",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "android",
+      "runArguments": ["--mode", "uatDebug"]
+    },
+    {
+      "name": "Android - PROD",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "android",
+      "runArguments": ["--mode", "prodDebug"]
+    },
+    {
+      "name": "iOS - DEV",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "attach",
+      "preLaunchTask": "Prepare iOS DEV (mock server + run-ios)"
+    },
+    {
+      "name": "iOS - UAT",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "attach",
+      "preLaunchTask": "Run iOS - UAT"
+    },
+    {
+      "name": "iOS - PROD",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "attach",
+      "preLaunchTask": "Run iOS - PROD"
+    },
+    {
+      "name": "Web - DEV",
+      "cwd": "${workspaceFolder}",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:8081",
+      "webRoot": "${workspaceFolder}",
+      "env": { "ENVFILE": ".env.dev" },
+      "preLaunchTask": "Start Mock Server"
+    },
+    {
+      "name": "Web - UAT",
+      "cwd": "${workspaceFolder}",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:8081",
+      "webRoot": "${workspaceFolder}",
+      "env": { "ENVFILE": ".env.uat" }
+    },
+    {
+      "name": "Web - PROD",
+      "cwd": "${workspaceFolder}",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:8081",
+      "webRoot": "${workspaceFolder}",
+      "env": { "ENVFILE": ".env.prod" }
+    },
+    {
+      "name": "Attach to packager",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "attach"
+    },
+    {
+      "name": "Debug Jest Tests",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/jest",
+      "args": ["--runInBand", "--watchAll=false"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "disableOptimisticBPs": true
+    }
+  ]
+}
