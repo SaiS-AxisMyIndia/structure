@@ -13,15 +13,18 @@ const INTERNAL_TAG = /^<Internal>(.+)$/i;
 type ScreenQuery = Record<string, unknown>;
 type ScreenBody = Record<string, unknown>;
 
-// Only attach { query, body } as route params when either actually has
-// content - otherwise React Navigation's web linking serializes the empty
-// objects straight into the URL as `?query=%7B%7D&body=%7B%7D` on every
-// navigation, even when nothing was passed.
-function buildParams(query: ScreenQuery, body: ScreenBody): { query?: ScreenQuery; body?: ScreenBody } | undefined {
+// `query`'s fields are spread as top-level route params (so a web URL reads
+// as the plain `?tag=policy` you'd expect) rather than nested under a
+// `query` key, which React Navigation's default web linking would otherwise
+// serialize as `?query=[object Object]`. `body` stays nested under its own
+// key since it's a payload object, not meant to be a flat query string.
+// Either is omitted entirely when empty, so nothing gets attached to the
+// URL when nothing was actually passed.
+function buildParams(query: ScreenQuery, body: ScreenBody): Record<string, unknown> | undefined {
   const hasQuery = Object.keys(query).length > 0;
   const hasBody = Object.keys(body).length > 0;
   if (!hasQuery && !hasBody) return undefined;
-  return { ...(hasQuery && { query }), ...(hasBody && { body }) };
+  return { ...query, ...(hasBody && { body }) };
 }
 
 class Route<Name extends string = string> {

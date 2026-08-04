@@ -16,9 +16,9 @@ type WebviewQuery = {
 
 export function WebViewPage() {
   const { params } = useRoute();
-  const { query = {} } = (params ?? {}) as { query?: WebviewQuery };
+  const { url: queryUrl, tag } = (params ?? {}) as WebviewQuery;
 
-  const url = query.tag ? AppConstants.webviewTags[query.tag].url[getFlavour()] : query.url;
+  const url = tag ? AppConstants.webviewTags[tag].url[getFlavour()] : queryUrl;
 
   const [title, setTitle] = useState('WebView');
   const loadingController = useLoadingController();
@@ -51,6 +51,7 @@ export function WebViewPage() {
               style={styles.webview}
               injectedJavaScript={INJECTED_BRIDGE_JS}
               onMessage={handleMessage}
+              onLoad={handleLoadEnd}
               onLoadEnd={handleLoadEnd}
               onError={() => loadingController.setError('Failed to load this page.')}
             />

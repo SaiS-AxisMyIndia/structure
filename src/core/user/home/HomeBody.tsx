@@ -33,10 +33,10 @@ export function HomeBody() {
 
               <Text style={styles.testLabel}>Test webview url</Text>
               <ElevatedButton
-                label="Open Google"
+                label="Open Example"
                 onPress={() =>
                   Routes.common.webview.navigate({
-                    url: AppConstants.urls.google,
+                    url: AppConstants.urls.example,
                   })
                 }
               />

@@ -31,7 +31,9 @@ export const AppConstants = {
   },
   urls:{
     "udan": "https://web.umang.gov.in/assistive?tenantId=axismyindia.org&domain=axismyindia.org&token=a48a70c2e691113df5ea88038b2421e520bc3c8b8eb9ec792a766148602b7fad",
-    "google": "https://www.google.com",
+    // example.com (IANA) sends no X-Frame-Options/CSP frame-ancestors restriction,
+    // unlike google.com - kept here as a demo target that actually loads in a WebView.
+    "example": "https://example.com",
     "survey": "https://web-dev.axismyindia.in/survey-ui?locale=en&id=356&flow=surveyor&auth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc1N1cnZleW9yIjp0cnVlLCJzdXJ2ZXlvcl9pZCI6NzUsImlhdCI6MTc4NDExMjc1MH0.608MixKIEu5TVDK5lxhoFC2_Twgeez54hcX782VEgjM"
   },
 
