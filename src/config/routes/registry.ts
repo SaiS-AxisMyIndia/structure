@@ -13,6 +13,17 @@ const INTERNAL_TAG = /^<Internal>(.+)$/i;
 type ScreenQuery = Record<string, unknown>;
 type ScreenBody = Record<string, unknown>;
 
+// Only attach { query, body } as route params when either actually has
+// content - otherwise React Navigation's web linking serializes the empty
+// objects straight into the URL as `?query=%7B%7D&body=%7B%7D` on every
+// navigation, even when nothing was passed.
+function buildParams(query: ScreenQuery, body: ScreenBody): { query?: ScreenQuery; body?: ScreenBody } | undefined {
+  const hasQuery = Object.keys(query).length > 0;
+  const hasBody = Object.keys(body).length > 0;
+  if (!hasQuery && !hasBody) return undefined;
+  return { ...(hasQuery && { query }), ...(hasBody && { body }) };
+}
+
 class Route<Name extends string = string> {
   private static readonly all: Record<string, Route> = {};
 
@@ -26,12 +37,12 @@ class Route<Name extends string = string> {
 
   navigate(query: ScreenQuery = {}, body: ScreenBody = {}) {
     if (!navigationRef.isReady()) return;
-    navigationRef.dispatch(CommonActions.navigate(this.name, { query, body }));
+    navigationRef.dispatch(CommonActions.navigate(this.name, buildParams(query, body)));
   }
 
   replace(query: ScreenQuery = {}, body: ScreenBody = {}) {
     if (!navigationRef.isReady()) return;
-    navigationRef.dispatch(StackActions.replace(this.name, { query, body }));
+    navigationRef.dispatch(StackActions.replace(this.name, buildParams(query, body)));
   }
 
   clearAll() {
@@ -41,12 +52,12 @@ class Route<Name extends string = string> {
 
   internalWebview(query: ScreenQuery = {}, body: ScreenBody = {}) {
     if (!navigationRef.isReady()) return;
-    navigationRef.dispatch(CommonActions.navigate(Routes.common.webview.name, { query, body }));
+    navigationRef.dispatch(CommonActions.navigate(Routes.common.webview.name, buildParams(query, body)));
   }
 
   externalWeb(query: ScreenQuery = {}, body: ScreenBody = {}) {
     if (!navigationRef.isReady()) return;
-    navigationRef.dispatch(CommonActions.navigate(this.name, { query, body }));
+    navigationRef.dispatch(CommonActions.navigate(this.name, buildParams(query, body)));
   }
 }
 

@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { OnLoadData, OnProgressData, OnVideoErrorData, VideoRef } from 'react-native-video';
 import { PLAYER_STATES, YoutubeIframeRef } from 'react-native-youtube-iframe';
+import { notifyPlaybackStarted, notifyPlaybackStopped } from './ActiveMediaManager';
 
 export type AVideoSourceType = 'youtube' | 'internal' | 'public';
 
@@ -12,6 +13,7 @@ export type AVideoPlayerState = {
   currentTime: number;
   duration: number;
   error?: string;
+  resetToken: number;
 };
 
 export type AVideoPlayerController = AVideoPlayerState & {
@@ -33,17 +35,21 @@ export type AVideoPlayerController = AVideoPlayerState & {
 export function useAVideoPlayerController(
   source: string,
   sourceType: AVideoSourceType,
+  autoPlay = false,
+  isActive = true,
 ): AVideoPlayerController {
   const videoRef = useRef<VideoRef>(null);
   const youtubeRef = useRef<YoutubeIframeRef>(null);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mediaHandleRef = useRef({}).current;
   const isFocused = useIsFocused();
 
   const [state, setState] = useState<AVideoPlayerState>({
     isLoading: true,
-    isPlaying: false,
+    isPlaying: autoPlay,
     currentTime: 0,
     duration: 0,
+    resetToken: 0,
   });
   const isPlayingRef = useRef(false);
   isPlayingRef.current = state.isPlaying;
@@ -66,18 +72,13 @@ export function useAVideoPlayerController(
   };
 
   useEffect(() => {
-    setState({ isLoading: true, isPlaying: false, currentTime: 0, duration: 0 });
-    return () => clearProgressTimer();
-  }, [source]);
-
-  const play = useCallback(() => {
-    if (sourceType === 'youtube') {
-      startYoutubeProgressTimer();
-    } else {
-      videoRef.current?.resume();
+    setState(prev => ({ isLoading: true, isPlaying: autoPlay, currentTime: 0, duration: 0, resetToken: prev.resetToken }));
+    if (autoPlay) {
+      notifyPlaybackStarted(mediaHandleRef, resetToStart);
     }
-    setState(prev => ({ ...prev, isPlaying: true }));
-  }, [sourceType]);
+    return () => clearProgressTimer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source]);
 
   const pause = useCallback(() => {
     if (sourceType === 'youtube') {
@@ -85,8 +86,34 @@ export function useAVideoPlayerController(
     } else {
       videoRef.current?.pause();
     }
+    notifyPlaybackStopped(mediaHandleRef);
     setState(prev => ({ ...prev, isPlaying: false }));
-  }, [sourceType]);
+  }, [sourceType, mediaHandleRef]);
+
+  const resetToStart = useCallback(() => {
+    if (sourceType === 'youtube') {
+      // YouTube's IFrame API only "probably" stays paused after seekTo() - it's not a
+      // guaranteed contract, and can resume playback once re-buffering completes.
+      // Force-remounting the iframe sidesteps that entirely: a freshly loaded video
+      // is unstarted at position 0 by default, with no seek/pause race involved.
+      pause();
+      setState(prev => ({ ...prev, currentTime: 0, resetToken: prev.resetToken + 1 }));
+    } else {
+      videoRef.current?.seek(0);
+      pause();
+      setState(prev => ({ ...prev, currentTime: 0 }));
+    }
+  }, [sourceType, pause]);
+
+  const play = useCallback(() => {
+    notifyPlaybackStarted(mediaHandleRef, resetToStart);
+    if (sourceType === 'youtube') {
+      startYoutubeProgressTimer();
+    } else {
+      videoRef.current?.resume();
+    }
+    setState(prev => ({ ...prev, isPlaying: true }));
+  }, [sourceType, mediaHandleRef, resetToStart]);
 
   const toggle = useCallback(() => {
     if (isPlayingRef.current) {
@@ -117,17 +144,20 @@ export function useAVideoPlayerController(
   }, []);
 
   const onVideoEnd = useCallback(() => {
+    videoRef.current?.seek(0);
+    notifyPlaybackStopped(mediaHandleRef);
     setState(prev => ({ ...prev, isPlaying: false, currentTime: 0 }));
-  }, []);
+  }, [mediaHandleRef]);
 
   const onVideoError = useCallback((e: OnVideoErrorData) => {
+    notifyPlaybackStopped(mediaHandleRef);
     setState(prev => ({
       ...prev,
       isLoading: false,
       isPlaying: false,
       error: e.error.localizedDescription ?? e.error.errorString ?? 'Failed to load video',
     }));
-  }, []);
+  }, [mediaHandleRef]);
 
   const onYoutubeReady = useCallback(() => {
     youtubeRef.current?.getDuration().then(duration => {
@@ -137,29 +167,39 @@ export function useAVideoPlayerController(
 
   const onYoutubeError = useCallback((error: string) => {
     clearProgressTimer();
+    notifyPlaybackStopped(mediaHandleRef);
     setState(prev => ({ ...prev, isLoading: false, isPlaying: false, error }));
-  }, []);
+  }, [mediaHandleRef]);
 
   const onYoutubeChangeState = useCallback((playerState: PLAYER_STATES) => {
     if (playerState === PLAYER_STATES.PLAYING) {
+      notifyPlaybackStarted(mediaHandleRef, resetToStart);
       setState(prev => ({ ...prev, isPlaying: true }));
       startYoutubeProgressTimer();
     } else if (playerState === PLAYER_STATES.BUFFERING) {
       setState(prev => ({ ...prev, isLoading: true }));
     } else if (playerState === PLAYER_STATES.PAUSED) {
       clearProgressTimer();
+      notifyPlaybackStopped(mediaHandleRef);
       setState(prev => ({ ...prev, isPlaying: false }));
     } else if (playerState === PLAYER_STATES.ENDED) {
       clearProgressTimer();
-      setState(prev => ({ ...prev, isPlaying: false, currentTime: 0 }));
+      notifyPlaybackStopped(mediaHandleRef);
+      setState(prev => ({ ...prev, isPlaying: false, currentTime: 0, resetToken: prev.resetToken + 1 }));
     }
-  }, []);
+  }, [mediaHandleRef, resetToStart]);
 
   useEffect(() => {
     if (!isFocused) {
       pause();
     }
   }, [isFocused, pause]);
+
+  useEffect(() => {
+    if (!isActive) {
+      pause();
+    }
+  }, [isActive, pause]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next: AppStateStatus) => {
@@ -169,6 +209,11 @@ export function useAVideoPlayerController(
     });
     return () => subscription.remove();
   }, [pause]);
+
+  useEffect(() => {
+    return () => notifyPlaybackStopped(mediaHandleRef);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     ...state,

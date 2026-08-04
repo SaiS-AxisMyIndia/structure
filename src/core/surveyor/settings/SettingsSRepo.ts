@@ -1,5 +1,5 @@
 import { ApiSheet } from '../../../config/network/api_sheet';
-import { secureCall } from '../../../config/network/secure_call';
+import { SecureCall } from '../../../config/network/secure_call';
 
 export type SettingsSummary = {
   greeting: string;
@@ -8,5 +8,5 @@ export type SettingsSummary = {
 
 export const SettingsSRepo = {
   fetchSummary: (): Promise<SettingsSummary> =>
-    secureCall<SettingsSummary>(ApiSheet.surveyor.settings),
+    SecureCall<SettingsSummary>(ApiSheet.surveyor.settings),
 };

@@ -1,5 +1,5 @@
 import { ApiSheet } from '../../../config/network/api_sheet';
-import { secureCall } from '../../../config/network/secure_call';
+import { SecureCall } from '../../../config/network/secure_call';
 
 export type Profile = {
   id: string;
@@ -9,5 +9,5 @@ export type Profile = {
 };
 
 export const ProfileRepo = {
-  fetchProfile: (): Promise<Profile> => secureCall<Profile>(ApiSheet.user.profile),
+  fetchProfile: (): Promise<Profile> => SecureCall<Profile>(ApiSheet.user.profile),
 };

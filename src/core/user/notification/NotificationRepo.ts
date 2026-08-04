@@ -9,8 +9,30 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     status: 'new',
     time: '2 min',
     thumbnail: 'https://picsum.photos/seed/survey-tablet/400/240',
-    url: 'https://example.com/videos/need-a-hospital',
-    source: 'internal',
+    url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    source: 'public',
+  },
+    {
+    id: '7',
+    kind: 'video',
+    title: 'Need a Hospital',
+    description: 'Find near by hospitals accepting Ayushman Bharat Card',
+    status: 'new',
+    time: '2 min',
+    thumbnail: 'https://picsum.photos/seed/survey-tablet2/400/240',
+    url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
+    source: 'public',
+  },
+  {
+    id: '8',
+    kind: 'video',
+    title: 'Need a Hospital',
+    description: 'Find near by hospitals accepting Ayushman Bharat Card',
+    status: 'new',
+    time: '2 min',
+    thumbnail: 'https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    source: 'youtube',
   },
   {
     id: '2',
@@ -59,5 +81,5 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
 
 export const NotificationRepo = {
   fetchNotifications: (): Promise<NotificationItem[]> =>
-    new Promise(resolve => setTimeout(() => resolve(SAMPLE_NOTIFICATIONS), 2000)),
+    new Promise(resolve => setTimeout(() => resolve(SAMPLE_NOTIFICATIONS), 700)),
 };

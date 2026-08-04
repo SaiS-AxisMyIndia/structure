@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>components_rn</title>
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        /* Native gives the app a fixed-size viewport where only an explicit
+           ScrollView/FlatList scrolls internally. A browser's <html>/<body>
+           scroll by default when content overflows, so without this the
+           whole page scrolls instead of just the intended inner list. */
+        overflow: hidden;
+      }
+      #root {
+        display: flex;
+        flex-direction: column;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

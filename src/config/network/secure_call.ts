@@ -17,7 +17,7 @@ export class SecureCallError extends Error {
   }
 }
 
-export async function secureCall<T>(
+export async function SecureCall<T>(
   path: string,
   options: SecureCallOptions = {},
 ): Promise<T> {

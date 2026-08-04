@@ -1,5 +1,5 @@
 import { ApiSheet } from '../../../config/network/api_sheet';
-import { secureCall } from '../../../config/network/secure_call';
+import { SecureCall } from '../../../config/network/secure_call';
 
 export type HomeSummary = {
   greeting: string;
@@ -7,5 +7,5 @@ export type HomeSummary = {
 };
 
 export const DashboardRepo = {
-  fetchSummary: (): Promise<HomeSummary> => secureCall<HomeSummary>(ApiSheet.surveyor.home),
+  fetchSummary: (): Promise<HomeSummary> => SecureCall<HomeSummary>(ApiSheet.surveyor.home),
 };

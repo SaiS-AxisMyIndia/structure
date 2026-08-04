@@ -1,27 +1,54 @@
-import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppColors } from '../../theme/AppColors';
 import { Themer } from '../../theme/Themer';
 import { SvgIcon } from '../images/SvgIcon';
 import { SvgIcons } from '../images/svg_icons';
+import { AVideoPlayer } from '../players/AVideoPlayer';
 import { NotificationTileFrame } from './NotificationTileFrame';
 import { VideoNotification } from './NotificationModel';
+
+const VIDEO_ASPECT_RATIO = 16 / 9;
 
 export function VideoNotificationsTile({
   title,
   description,
   thumbnail,
+  url,
+  source,
   status,
   time,
   onPress,
-}: VideoNotification) {
+  isVisible = true,
+}: VideoNotification & { isVisible?: boolean }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+
   return (
     <NotificationTileFrame status={status} time={time} onPress={onPress}>
-      <View style={[styles.imageWrap, Themer.iosRadius(10)]}>
-        <Image source={{ uri: thumbnail }} style={styles.image} resizeMode="cover" />
-        <View style={styles.playButton}>
-          <SvgIcon icon={SvgIcons.play} size={20} />
-        </View>
+      <View style={styles.playerWrap}>
+        {source === 'youtube' ? (
+          <AVideoPlayer
+            source={url}
+            sourceType={source}
+            aspectRatio={VIDEO_ASPECT_RATIO}
+            isActive={isVisible}
+          />
+        ) : isPlaying ? (
+          <AVideoPlayer
+            source={url}
+            sourceType={source}
+            aspectRatio={VIDEO_ASPECT_RATIO}
+            autoPlay
+            isActive={isVisible}
+          />
+        ) : (
+          <View style={[styles.imageWrap, { aspectRatio: VIDEO_ASPECT_RATIO }, Themer.iosRadius(10)]}>
+            <Image source={{ uri: thumbnail }} style={styles.image} resizeMode="cover" />
+            <Pressable style={styles.playButton} onPress={() => setIsPlaying(true)}>
+              <SvgIcon icon={SvgIcons.play} size={20} />
+            </Pressable>
+          </View>
+        )}
       </View>
       <Text style={styles.title}>{title}</Text>
       {!!description && <Text style={styles.description}>{description}</Text>}
@@ -30,10 +57,11 @@ export function VideoNotificationsTile({
 }
 
 const styles = StyleSheet.create({
+  playerWrap: {
+    marginBottom: 10,
+  },
   imageWrap: {
     width: '100%',
-    height: 140,
-    marginBottom: 10,
   },
   image: {
     width: '100%',

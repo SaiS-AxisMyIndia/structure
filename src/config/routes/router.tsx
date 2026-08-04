@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { LinkingOptions, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { navigationRef, Routes } from './registry';
 import { HomePage as UserHomePage } from '../../core/user/home/HomePage';
@@ -20,9 +20,27 @@ export type AppRole = 'user' | 'surveyor';
 
 const Stack = createNativeStackNavigator();
 
+// Route names are already path-like strings (e.g. '/user/notification'), so
+// the linking config is just those names mapped to themselves. This is what
+// lets a URL like http://localhost:8080/user/notification - typed directly
+// or landed on via a refresh - restore the matching screen instead of
+// always falling back to the first one in the stack.
+function buildLinking(role: AppRole): LinkingOptions<Record<string, object | undefined>> {
+  const roleRoutes = role === 'user' ? Routes.user : Routes.surveyor;
+  const screens: Record<string, string> = {};
+  [...Object.values(roleRoutes), Routes.common.webview].forEach(route => {
+    screens[route.name] = route.name.replace(/^\//, '');
+  });
+
+  return {
+    prefixes: [],
+    config: { screens },
+  };
+}
+
 export function Router({ role }: { role: AppRole }) {
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} linking={buildLinking(role)}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {role === 'user' ? (
           <>

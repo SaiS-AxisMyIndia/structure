@@ -12,13 +12,14 @@ export function AudioNotificationTile({
   status,
   time,
   onPress,
-}: AudioNotification) {
+  isVisible = true,
+}: AudioNotification & { isVisible?: boolean }) {
   return (
     <NotificationTileFrame status={status} time={time} onPress={onPress}>
       <Text style={styles.title}>{title}</Text>
       {!!description && <Text style={styles.description}>{description}</Text>}
       <View style={styles.playerWrap}>
-        <AAudioPlayer source={audio} />
+        <AAudioPlayer source={audio} isActive={isVisible} />
       </View>
     </NotificationTileFrame>
   );

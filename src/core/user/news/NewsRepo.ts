@@ -1,5 +1,5 @@
 import { ApiSheet } from '../../../config/network/api_sheet';
-import { secureCall } from '../../../config/network/secure_call';
+import { SecureCall } from '../../../config/network/secure_call';
 
 export type NewsSummary = {
   greeting: string;
@@ -7,5 +7,5 @@ export type NewsSummary = {
 };
 
 export const NewsRepo = {
-  fetchSummary: (): Promise<NewsSummary> => secureCall<NewsSummary>(ApiSheet.user.news),
+  fetchSummary: (): Promise<NewsSummary> => SecureCall<NewsSummary>(ApiSheet.user.news),
 };

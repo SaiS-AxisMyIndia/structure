@@ -10,6 +10,7 @@ import { SpinningRing } from './SpinningRing';
 export type AAudioPlayerProps = {
   source: string;
   title?: string;
+  isActive?: boolean;
 };
 
 const RING_SIZE = 40;
@@ -31,8 +32,8 @@ function fileNameFromSource(source: string): string {
   }
 }
 
-export function AAudioPlayer({ source, title }: AAudioPlayerProps) {
-  const player = useAAudioPlayerController(source);
+export function AAudioPlayer({ source, title, isActive = true }: AAudioPlayerProps) {
+  const player = useAAudioPlayerController(source, isActive);
   const committedProgress = player.duration > 0 ? player.currentTime / player.duration : 0;
   const displayTitle = title || fileNameFromSource(source);
 
@@ -73,6 +74,7 @@ export function AAudioPlayer({ source, title }: AAudioPlayerProps) {
 
 const styles = StyleSheet.create({
   container: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: AppColors.primaryBg2,

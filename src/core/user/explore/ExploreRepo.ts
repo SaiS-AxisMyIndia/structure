@@ -1,5 +1,5 @@
 import { ApiSheet } from '../../../config/network/api_sheet';
-import { secureCall } from '../../../config/network/secure_call';
+import { SecureCall } from '../../../config/network/secure_call';
 
 export type ExploreSummary = {
   greeting: string;
@@ -7,5 +7,5 @@ export type ExploreSummary = {
 };
 
 export const ExploreRepo = {
-  fetchSummary: (): Promise<ExploreSummary> => secureCall<ExploreSummary>(ApiSheet.user.explore),
+  fetchSummary: (): Promise<ExploreSummary> => SecureCall<ExploreSummary>(ApiSheet.user.explore),
 };

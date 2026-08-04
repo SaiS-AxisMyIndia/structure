@@ -1,5 +1,5 @@
 import { ApiSheet } from '../../../config/network/api_sheet';
-import { secureCall } from '../../../config/network/secure_call';
+import { SecureCall } from '../../../config/network/secure_call';
 
 export type Job = {
   id: string;
@@ -8,7 +8,7 @@ export type Job = {
 };
 
 export const JobsRepo = {
-  fetchJobs: (): Promise<Job[]> => secureCall<Job[]>(ApiSheet.user.jobs),
+  fetchJobs: (): Promise<Job[]> => SecureCall<Job[]>(ApiSheet.user.jobs),
   fetchJobDetail: (id: string): Promise<Job> =>
-    secureCall<Job>(ApiSheet.user.jobDetail(id)),
+    SecureCall<Job>(ApiSheet.user.jobDetail(id)),
 };

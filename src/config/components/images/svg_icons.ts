@@ -19,6 +19,8 @@ import offline from '../../../../assets/icons/ic_offline.svg';
 import chevronRight from '../../../../assets/icons/ic_chevron_right.svg';
 import play from '../../../../assets/icons/ic_play.svg';
 import pause from '../../../../assets/icons/ic_pause.svg';
+import speaker from '../../../../assets/icons/ic_speaker.svg';
+import speakerOff from '../../../../assets/icons/ic_speaker_off.svg';
 
 export const SvgIcons = {
   back,
@@ -42,4 +44,6 @@ export const SvgIcons = {
   chevronRight,
   play,
   pause,
+  speaker,
+  speakerOff,
 } as const;

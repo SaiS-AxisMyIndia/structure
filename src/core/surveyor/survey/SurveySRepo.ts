@@ -1,5 +1,5 @@
 import { ApiSheet } from '../../../config/network/api_sheet';
-import { secureCall } from '../../../config/network/secure_call';
+import { SecureCall } from '../../../config/network/secure_call';
 
 export type Assignment = {
   id: string;
@@ -9,5 +9,5 @@ export type Assignment = {
 
 export const SurveySRepo = {
   fetchAssignments: (): Promise<Assignment[]> =>
-    secureCall<Assignment[]>(ApiSheet.surveyor.surveyor),
+    SecureCall<Assignment[]>(ApiSheet.surveyor.surveyor),
 };
