@@ -17,6 +17,7 @@ function GradientIcon({ icon }: { icon: ProfileFeatureItem['icon'] }) {
         start={Themer.primaryGradient.start}
         end={Themer.primaryGradient.end}
         colors={Themer.primaryGradient.colors}
+        locations={Themer.primaryGradient.locations}
         style={styles.iconGradient}
       />
     </MaskedView>
@@ -37,6 +38,7 @@ export function ProfileFeaturesCard({ title = 'Features', items, onItemPress }: 
           start={Themer.primaryGradient.start}
           end={Themer.primaryGradient.end}
           colors={Themer.primaryGradient.colors}
+          locations={Themer.primaryGradient.locations}
         >
           <Text style={[styles.title, styles.titleMaskSpacer]}>{title}</Text>
         </LinearGradient>

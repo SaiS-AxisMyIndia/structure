@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppColors } from '../../theme/AppColors';
 import { Themer } from '../../theme/Themer';
+import { ImageLoader } from '../images/ImageLoader';
 import { SvgIcon } from '../images/SvgIcon';
 import { SvgIcons } from '../images/svg_icons';
 import { AVideoPlayer } from '../players/AVideoPlayer';
@@ -28,11 +29,7 @@ function BannerBlockView({ block }: { block: Extract<NewsContentBlock, { kind: '
   const aspectRatio = block.aspectRatio ?? 16 / 9;
   return (
     <View style={styles.bannerWrap}>
-      <Image
-        source={{ uri: block.image }}
-        style={[styles.banner, { aspectRatio }, Themer.iosRadius(10)]}
-        resizeMode="cover"
-      />
+      <ImageLoader source={{ uri: block.image }} style={styles.banner} aspectRatio={aspectRatio} borderRadius={10} />
     </View>
   );
 }
@@ -60,7 +57,7 @@ function VideoBlockView({ block }: { block: Extract<NewsContentBlock, { kind: 'v
   return (
     <View style={styles.videoWrap}>
       <View style={[styles.imageWrap, { aspectRatio }, Themer.iosRadius(10)]}>
-        <Image source={{ uri: block.thumbnail }} style={styles.image} resizeMode="cover" />
+        <ImageLoader source={{ uri: block.thumbnail }} style={styles.image} />
         <Pressable style={styles.playButton} onPress={() => setIsPlaying(true)}>
           <SvgIcon icon={SvgIcons.play} size={20} />
         </Pressable>

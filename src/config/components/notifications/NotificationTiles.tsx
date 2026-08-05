@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppColors } from '../../theme/AppColors';
 import { Themer } from '../../theme/Themer';
+import { ImageLoader } from '../images/ImageLoader';
 import { SvgIcon } from '../images/SvgIcon';
 import { SvgIcons } from '../images/svg_icons';
 import { AAudioPlayer } from '../players/AAudioPlayer';
@@ -25,6 +26,8 @@ import {
 function pressNotification(route?: string) {
   Routes.deepLink(route);
 }
+
+const ASPECT_RATIO = 16 / 9;
 
 type NotificationTileFrameProps = {
   status: NotificationStatus;
@@ -61,14 +64,13 @@ export function BannerNotificationTile({
 }: BannerNotification & { onPress?: () => void }) {
   return (
     <NotificationTileFrame status={status} time={time} onPress={onPress ?? (() => pressNotification(route))}>
-      <Image source={{ uri: image }} style={[styles.bannerImage, Themer.iosRadius(10)]} resizeMode="cover" />
+      <ImageLoader source={{ uri: image }} style={styles.bannerImage} aspectRatio={ASPECT_RATIO} borderRadius={10} />
       <Text style={styles.title}>{title}</Text>
       {!!description && <Text style={styles.description}>{description}</Text>}
     </NotificationTileFrame>
   );
 }
 
-const VIDEO_ASPECT_RATIO = 16 / 9;
 
 export function VideoNotificationsTile({
   title,
@@ -91,20 +93,20 @@ export function VideoNotificationsTile({
           <AVideoPlayer
             source={url}
             sourceType={source}
-            aspectRatio={VIDEO_ASPECT_RATIO}
+            aspectRatio={ASPECT_RATIO}
             isActive={isVisible}
           />
         ) : isPlaying ? (
           <AVideoPlayer
             source={url}
             sourceType={source}
-            aspectRatio={VIDEO_ASPECT_RATIO}
+            aspectRatio={ASPECT_RATIO}
             autoPlay
             isActive={isVisible}
           />
         ) : (
-          <View style={[styles.imageWrap, { aspectRatio: VIDEO_ASPECT_RATIO }, Themer.iosRadius(10)]}>
-            <Image source={{ uri: thumbnail }} style={styles.videoImage} resizeMode="cover" />
+          <View style={[styles.imageWrap, { aspectRatio: ASPECT_RATIO }, Themer.iosRadius(10)]}>
+            <ImageLoader source={{ uri: thumbnail }} style={styles.videoImage} />
             <Pressable style={styles.playButton} onPress={() => setIsPlaying(true)}>
               <SvgIcon icon={SvgIcons.play} size={20} />
             </Pressable>
@@ -129,7 +131,7 @@ export function ImageNotificatonTile({
   return (
     <NotificationTileFrame status={status} time={time} onPress={onPress ?? (() => pressNotification(route))}>
       <View style={styles.row}>
-        <Image source={{ uri: thumbnail }} style={[styles.thumbnail, Themer.iosRadius(8)]} resizeMode="cover" />
+        <ImageLoader source={{ uri: thumbnail }} style={styles.thumbnail} aspectRatio={ASPECT_RATIO} borderRadius={8} />
         <View style={styles.textCol}>
           <Text style={styles.title} numberOfLines={1}>
             {title}
@@ -157,7 +159,7 @@ export function LogoNotificationTile({
   return (
     <NotificationTileFrame status={status} time={time} onPress={onPress ?? (() => pressNotification(route))}>
       <View style={styles.row}>
-        <Image source={{ uri: logo }} style={styles.logo} resizeMode="cover" />
+        <ImageLoader source={{ uri: logo }} style={styles.logo} />
         <View style={styles.textCol}>
           <Text style={styles.title} numberOfLines={1}>
             {title}

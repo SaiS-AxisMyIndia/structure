@@ -46,6 +46,8 @@ export const Themer = {
   primaryGradient: {
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },
-    colors: [AppColors.primary, AppColors.secondary],
+    colors: [AppColors.primaryG1, AppColors.primaryG2],
+    // g1 begins 10% of the way along the gradient line, g2 at 50%.
+    locations: [0.1, 0.5],
   },
 };

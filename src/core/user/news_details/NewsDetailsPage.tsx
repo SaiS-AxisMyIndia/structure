@@ -59,7 +59,7 @@ export function NewsDetailsPage() {
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.relatedList}
                         renderItem={({ item }) => (
-                          <CompactNewsTile {...item} maxWidth={300} />
+                          <CompactNewsTile {...item} maxWidth={320} />
                         )}
                       />
                     </View>

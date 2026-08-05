@@ -49,6 +49,7 @@ export function MainSBar({
               start={Themer.primaryGradient.start}
               end={Themer.primaryGradient.end}
               colors={Themer.primaryGradient.colors}
+              locations={Themer.primaryGradient.locations}
             >
               <Text style={[styles.orgName, styles.orgNameMaskSpacer]} numberOfLines={1}>
                 {orgName}

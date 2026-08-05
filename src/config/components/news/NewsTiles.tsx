@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Image, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { AppColors } from '../../theme/AppColors';
 import { Themer } from '../../theme/Themer';
+import { ImageLoader } from '../images/ImageLoader';
 import { SvgIcon } from '../images/SvgIcon';
 import { SvgIcons } from '../images/svg_icons';
 import { AVideoPlayer } from '../players/AVideoPlayer';
@@ -25,6 +26,8 @@ function shareNews(id: string, title: string) {
   Share.share({ message: title, url: Routes.user.newsDetails.shareUrl({ id }) }).catch(() => {});
 }
 
+const ASPECT_RATIO = 16 / 9;
+
 type NewsTileFrameProps = {
   source: string;
   sourceLogo: string;
@@ -33,6 +36,7 @@ type NewsTileFrameProps = {
   // Caps this tile's own width; unset (default) leaves it stretching to
   // fill its parent.
   maxWidth?: number;
+  compactImageWidth?: number;
   onPress?: () => void;
   onSharePress?: () => void;
   children: React.ReactNode;
@@ -63,7 +67,7 @@ function NewsTileFrame({
   return (
     <Pressable onPress={onPress} style={[styles.card, Themer.shadow(), cardWidth != null && { width: cardWidth }]}>
       <View style={styles.header}>
-        <Image source={{ uri: sourceLogo }} style={[styles.logo, Themer.iosRadius(14)]} />
+        <ImageLoader source={{ uri: sourceLogo }} style={styles.logo} borderRadius={100} />
         <Text style={styles.source} numberOfLines={1}>
           {source}
         </Text>
@@ -87,6 +91,7 @@ export type CompactNewsTileProps = CompactNewsItem & {
   // Caps this tile's own width; unset (default) leaves it stretching to
   // fill its parent.
   maxWidth?: number;
+  compactImageWidth?: number;
   onPress?: () => void;
   onSharePress?: () => void;
 };
@@ -100,6 +105,7 @@ export function CompactNewsTile({
   image,
   views,
   maxWidth,
+  compactImageWidth = 100,
   onPress,
   onSharePress,
 }: CompactNewsTileProps) {
@@ -110,6 +116,7 @@ export function CompactNewsTile({
       time={time}
       views={views}
       maxWidth={maxWidth}
+      compactImageWidth={compactImageWidth}
       onPress={onPress ?? (() => pressNews(id))}
       onSharePress={onSharePress ?? (() => shareNews(id, title))}
     >
@@ -117,7 +124,7 @@ export function CompactNewsTile({
         <Text style={styles.compactTitle} numberOfLines={3}>
           {title}
         </Text>
-        <Image source={{ uri: image }} style={[styles.thumb, Themer.iosRadius(8)]} resizeMode="cover" />
+        <ImageLoader source={{ uri: image }} style={styles.thumb} borderRadius={8} aspectRatio={ASPECT_RATIO} minWidth={compactImageWidth} />
       </View>
     </NewsTileFrame>
   );
@@ -139,7 +146,7 @@ export function BannerNewsTile({
   title,
   image,
   views,
-  aspectRatio = 16 / 9,
+  aspectRatio = ASPECT_RATIO,
   maxWidth,
   onPress,
   onSharePress,
@@ -154,11 +161,7 @@ export function BannerNewsTile({
       onPress={onPress ?? (() => pressNews(id))}
       onSharePress={onSharePress ?? (() => shareNews(id, title))}
     >
-      <Image
-        source={{ uri: image }}
-        style={[styles.bannerImage, { aspectRatio }, Themer.iosRadius(10)]}
-        resizeMode="cover"
-      />
+      <ImageLoader source={{ uri: image }} style={styles.bannerImage} aspectRatio={aspectRatio} borderRadius={10} />
       <Text style={styles.title} numberOfLines={3}>
         {title}
       </Text>
@@ -184,7 +187,7 @@ export function VideoNewsTile({
   videoUrl,
   videoSource,
   views,
-  aspectRatio = 16 / 9,
+  aspectRatio = ASPECT_RATIO,
   maxWidth,
   onPress,
   onSharePress,
@@ -208,7 +211,7 @@ export function VideoNewsTile({
           <AVideoPlayer source={videoUrl} sourceType={videoSource} aspectRatio={aspectRatio} autoPlay />
         ) : (
           <View style={[styles.videoImageWrap, { aspectRatio }, Themer.iosRadius(10)]}>
-            <Image source={{ uri: image }} style={styles.videoImage} resizeMode="cover" />
+            <ImageLoader source={{ uri: image }} style={styles.videoImage} />
             <Pressable style={styles.playButton} onPress={() => setIsPlaying(true)}>
               <SvgIcon icon={SvgIcons.play} size={20} />
             </Pressable>

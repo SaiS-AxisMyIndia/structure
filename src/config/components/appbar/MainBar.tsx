@@ -49,6 +49,7 @@ export function MainBar({
             start={Themer.primaryGradient.start}
             end={Themer.primaryGradient.end}
             colors={Themer.primaryGradient.colors}
+            locations={Themer.primaryGradient.locations}
           >
             <Text style={[styles.userName, styles.userNameMaskSpacer]} numberOfLines={1}>
               {userName}

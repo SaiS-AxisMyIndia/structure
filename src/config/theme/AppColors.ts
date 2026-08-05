@@ -27,5 +27,8 @@ export const AppColors = {
     black: '#000000',
     white: '#FFFFFF',
 
+    primaryG1: '#C502C5',
+    primaryG2: '#990099',
+
 
 };

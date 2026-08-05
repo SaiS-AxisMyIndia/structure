@@ -1,7 +1,7 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppColors } from '../../theme/AppColors';
-import { Themer } from '../../theme/Themer';
+import { ImageLoader } from '../images/ImageLoader';
 import { SvgIcon } from '../images/SvgIcon';
 import { SvgIcons } from '../images/svg_icons';
 import { formatViews } from '../news/NewsTiles';
@@ -30,17 +30,13 @@ export function NewsDetailsHeader({
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        <Image source={{ uri: sourceLogo }} style={[styles.logo, Themer.iosRadius(16)]} />
+        <ImageLoader source={{ uri: sourceLogo }} style={styles.logo} borderRadius={16} />
         <Text style={styles.source} numberOfLines={1}>
           {source}
         </Text>
         <Text style={styles.time}>{time}</Text>
       </View>
-      <Image
-        source={{ uri: image }}
-        style={[styles.image, { aspectRatio }, Themer.iosRadius(10)]}
-        resizeMode="cover"
-      />
+      <ImageLoader source={{ uri: image }} style={styles.image} aspectRatio={aspectRatio} borderRadius={10} />
       <Text style={styles.title}>{title}</Text>
       <View style={styles.footer}>
         <Pressable onPress={onSharePress} hitSlop={8}>
