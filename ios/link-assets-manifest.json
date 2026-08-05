@@ -1,0 +1,37 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/devanagari/IBMPlexSansDevanagari-Bold.ttf",
+      "sha1": "e6a9956736f484bdcbeb6267076963b1f1568408"
+    },
+    {
+      "path": "assets/fonts/devanagari/IBMPlexSansDevanagari-ExtraLight.ttf",
+      "sha1": "3dc4c9375d8e94398de8fe3e581357fcc1d240a3"
+    },
+    {
+      "path": "assets/fonts/devanagari/IBMPlexSansDevanagari-Light.ttf",
+      "sha1": "1bf53f9b99440874e3627c6f0d06b94a42ce637e"
+    },
+    {
+      "path": "assets/fonts/devanagari/IBMPlexSansDevanagari-Medium.ttf",
+      "sha1": "1e8ca725e5d42716d6fece014dafb20dd7a1516b"
+    },
+    {
+      "path": "assets/fonts/devanagari/IBMPlexSansDevanagari-Regular.ttf",
+      "sha1": "fede1143d4c7297d3c17e5aa5064a934eef4b8f3"
+    },
+    {
+      "path": "assets/fonts/devanagari/IBMPlexSansDevanagari-SemiBold.ttf",
+      "sha1": "3df6a406412dc18aa800a05cb92564349604a5a5"
+    },
+    {
+      "path": "assets/fonts/devanagari/IBMPlexSansDevanagari-Thin.ttf",
+      "sha1": "44c0ecd9356eba50dd7000c7c02b55cf8f1f95f7"
+    },
+    {
+      "path": "assets/fonts/devanagari/OFL.txt",
+      "sha1": "c18afd2819e0d65e19bb09cee1aee46045277a1d"
+    }
+  ]
+}

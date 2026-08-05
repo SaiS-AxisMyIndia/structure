@@ -8,6 +8,9 @@
 import { StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Router } from './src/config/routes/router';
+import { applyGlobalFont } from './src/config/theme/applyGlobalFont';
+
+applyGlobalFont();
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';

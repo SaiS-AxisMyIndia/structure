@@ -4,6 +4,7 @@ import {
   StackActions,
 } from '@react-navigation/native';
 import { Linking } from 'react-native';
+import { getAppBaseUrl } from '../flavour/flavour';
 
 export const navigationRef = createNavigationContainerRef();
 
@@ -53,6 +54,18 @@ class Route<Name extends string = string> {
     navigationRef.dispatch(CommonActions.reset({ index: 0, routes: [{ name: this.name }] }));
   }
 
+  // The app's own public URL for this screen (e.g. for sharing), as opposed
+  // to navigate()/replace() which drive in-app navigation. Query fields are
+  // flattened the same way buildParams does, so ids/tags read as plain
+  // `?id=123` rather than a nested/encoded object.
+  shareUrl(query: ScreenQuery = {}): string {
+    const entries = Object.entries(query);
+    const qs = entries.length > 0
+      ? `?${entries.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`).join('&')}`
+      : '';
+    return `${getAppBaseUrl()}${this.name}${qs}`;
+  }
+
   internalWebview(query: ScreenQuery = {}, body: ScreenBody = {}) {
     if (!navigationRef.isReady()) return;
     navigationRef.dispatch(CommonActions.navigate(Routes.common.webview.name, buildParams(query, body)));
@@ -72,6 +85,7 @@ export const Routes = {
     schemes: new Route('/user/schemes'),
     services: new Route('/user/services'),
     news: new Route('/user/news'),
+    newsDetails: new Route('/user/news/details'),
     notification: new Route('/user/notification'),
     profile: new Route('/user/profile'),
   },

@@ -21,6 +21,10 @@ import play from '../../../../assets/icons/ic_play.svg';
 import pause from '../../../../assets/icons/ic_pause.svg';
 import speaker from '../../../../assets/icons/ic_speaker.svg';
 import speakerOff from '../../../../assets/icons/ic_speaker_off.svg';
+import share from '../../../../assets/icons/ic_share.svg';
+import eye from '../../../../assets/icons/ic_eye.svg';
+import check from '../../../../assets/icons/ic_check.svg';
+import arrowUpRight from '../../../../assets/icons/ic_arrow_up_right.svg';
 
 export const SvgIcons = {
   back,
@@ -46,4 +50,8 @@ export const SvgIcons = {
   pause,
   speaker,
   speakerOff,
+  share,
+  eye,
+  check,
+  arrowUpRight,
 } as const;

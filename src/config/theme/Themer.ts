@@ -2,7 +2,7 @@ import { AppColors } from './AppColors';
 
 export const Themer = {
   shadow: (color?: (typeof AppColors)[keyof typeof AppColors]) => ({
-    shadowColor: color || AppColors.primaryBg,
+    shadowColor: color || AppColors.secondaryBg,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -14,13 +14,13 @@ export const Themer = {
     radius: number = 10,
     color?: (typeof AppColors)[keyof typeof AppColors],
   ) => ({
-    borderBottomColor: color || AppColors.primaryBg,
+    borderBottomColor: color || AppColors.secondaryBg,
     borderBottomWidth: width,
     borderRadius: radius,
   }),
 
   bottomShadow: (color?: (typeof AppColors)[keyof typeof AppColors]) => ({
-    shadowColor: color || AppColors.primaryBg,
+    shadowColor: color || AppColors.secondaryBg,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -28,12 +28,12 @@ export const Themer = {
   }),
 
   shadowWithBorder: (color?: (typeof AppColors)[keyof typeof AppColors], borderColor?: (typeof AppColors)[keyof typeof AppColors]) => ({
-    shadowColor: color || AppColors.primaryBg,
+    shadowColor: color || AppColors.secondaryBg,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 4,
-    borderColor: borderColor || AppColors.primaryBg,
+    borderColor: borderColor || AppColors.secondaryBg,
     borderWidth: 1,
   }),
 

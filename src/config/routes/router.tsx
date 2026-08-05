@@ -9,6 +9,7 @@ import { ServicesPage } from '../../core/user/services/ServicesPage';
 import { NotificationPage } from '../../core/user/notification/NotificationPage';
 import { ProfilePage } from '../../core/user/profile/ProfilePage';
 import { NewsPage } from '../../core/user/news/NewsPage';
+import { NewsDetailsPage } from '../../core/user/news_details/NewsDetailsPage';
 import { ExplorePage } from '../../core/user/explore/ExplorePage';
 import { DashboardPage as DashboardPage } from '../../core/surveyor/dashboard/DashboardPage';
 import { SurveySPage } from '../../core/surveyor/survey/SurveySPage';
@@ -66,6 +67,7 @@ export function Router({ role }: { role: AppRole }) {
               name={Routes.user.news.name}
               component={NewsPage}
             />
+            <Stack.Screen name={Routes.user.newsDetails.name} component={NewsDetailsPage} />
             <Stack.Screen name={Routes.user.explore.name} component={ExplorePage} />
           </>
         ) : (

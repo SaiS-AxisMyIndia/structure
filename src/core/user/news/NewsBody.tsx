@@ -1,36 +1,33 @@
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { FlatList, StyleSheet } from 'react-native';
 import { LoadingView } from '../../../config/components/layouts/LoadingView';
 import { useNewsController } from './NewsController';
+import { renderNewsTile } from '../../../config/components/news/NewsTiles';
 
 export function NewsBody() {
   const controller = useNewsController();
-  const { summary, reload } = controller;
+  const { news, loading, reload } = controller;
 
   return (
     <LoadingView
       controller={controller.loadingController}
       onRefresh={reload}
       body={
-        summary ? (
-          <>
-            <Text style={styles.greeting}>{summary.greeting}</Text>
-            <Text style={styles.stat}>Unread news: {summary.unreadNewsCount}</Text>
-          </>
-        ) : null
+        <FlatList
+          data={news}
+          keyExtractor={item => item.id}
+          onRefresh={reload}
+          refreshing={loading}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => renderNewsTile(item)}
+        />
       }
     />
   );
 }
 
 const styles = StyleSheet.create({
-  greeting: {
-    fontSize: 18,
-    fontWeight: '600',
-    paddingHorizontal: 16,
-    marginTop: 12,
-  },
-  stat: {
-    fontSize: 14,
+  list: {
+    paddingVertical: 8,
   },
 });

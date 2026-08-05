@@ -11,6 +11,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     thumbnail: 'https://picsum.photos/seed/survey-tablet/400/240',
     url: 'https://www.w3schools.com/html/mov_bbb.mp4',
     source: 'public',
+    route: '/user/services',
   },
     {
     id: '7',
@@ -22,6 +23,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     thumbnail: 'https://picsum.photos/seed/survey-tablet2/400/240',
     url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
     source: 'public',
+    route: '/user/services',
   },
   {
     id: '8',
@@ -33,6 +35,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     thumbnail: 'https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg',
     url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
     source: 'youtube',
+    route: '<External>https://www.youtube.com/watch?v=aqz-KE-bpKQ',
   },
   {
     id: '2',
@@ -42,6 +45,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     status: 'read',
     time: 'Now',
     audio: 'https://samplelib.com/mp3/sample-3s.mp3',
+    route: '/user/schemes',
   },
   {
     id: '3',
@@ -51,6 +55,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     status: 'new',
     time: '2 min',
     image: 'https://picsum.photos/seed/hospital-building/400/240',
+    route: '/user/services',
   },
   {
     id: '4',
@@ -60,6 +65,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     status: 'read',
     time: 'Now',
     logo: 'https://picsum.photos/seed/pmjay-logo/80/80',
+    route: '/user/schemes',
   },
   {
     id: '5',
@@ -68,6 +74,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     description: 'Find near by hospitals accepting Ayushman Bharat Card',
     status: 'read',
     time: 'Now',
+    route: '/user/schemes',
   },
   {
     id: '6',
@@ -76,6 +83,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
     status: 'new',
     time: '2 min',
     logo: 'https://picsum.photos/seed/pmjay-logo/80/80',
+    route: '/user/schemes',
   },
 ];
 

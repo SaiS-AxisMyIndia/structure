@@ -6,7 +6,10 @@ export type NotificationBase = {
   description?: string;
   status: NotificationStatus;
   time: string;
-  onPress?: () => void;
+  // Where tapping this notification should go - passed straight to
+  // Routes.deepLink(), so it can be a plain route path, an `<Internal>`
+  // webview URL, or an `<External>` URL. Comes from the repo/API.
+  route?: string;
 };
 
 export type BannerNotification = NotificationBase & {

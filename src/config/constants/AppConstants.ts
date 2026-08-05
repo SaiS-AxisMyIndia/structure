@@ -39,12 +39,12 @@ export const AppConstants = {
 
   breakPoints: {
     web: 1200,
-    tablet: 900,
+    tablet: 1000,
     mobile: 600,
   },
   maxWidth:{
-    web: 1100,
-    tablet: 800,
+    web: 1200,
+    tablet: 750,
     mobile: 450,
   }
 
