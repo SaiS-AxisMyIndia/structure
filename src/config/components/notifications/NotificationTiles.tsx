@@ -8,6 +8,7 @@ import { SvgIcons } from '../images/svg_icons';
 import { AAudioPlayer } from '../players/AAudioPlayer';
 import { AVideoPlayer } from '../players/AVideoPlayer';
 import { Routes } from '../../routes/registry';
+import { DateFormatter } from '../../utils/DateFormatter';
 import {
   AudioNotification,
   BannerNotification,
@@ -45,7 +46,7 @@ function NotificationTileFrame({ status, time, onPress, children }: Notification
           {status === 'new' ? 'New' : 'Read'}
         </Text>
         <View style={styles.timeRow}>
-          <Text style={styles.time}>{time}</Text>
+          <Text style={styles.time}>{DateFormatter.smart(time)}</Text>
           <SvgIcon icon={SvgIcons.chevronRight} size={16} />
         </View>
       </View>
@@ -274,7 +275,6 @@ const styles = StyleSheet.create({
   },
   bannerImage: {
     width: '100%',
-    height: 140,
     marginBottom: 10,
   },
   videoPlayerWrap: {
@@ -285,7 +285,6 @@ const styles = StyleSheet.create({
   },
   videoImage: {
     width: '100%',
-    height: '100%',
   },
   playButton: {
     position: 'absolute',

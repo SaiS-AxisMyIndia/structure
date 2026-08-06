@@ -1,12 +1,11 @@
 import React from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
-import MaskedView from '@react-native-masked-view/masked-view';
-import LinearGradient from 'react-native-linear-gradient';
 import { SvgIcon } from '../images/SvgIcon';
 import { SvgIcons } from '../images/svg_icons';
 import { AppColors } from '../../theme/AppColors';
 import { Themer } from '../../theme/Themer';
 import { Routes } from '../../routes/registry';
+import { GradientText } from './GradientText';
 
 export type MainSBarProps = {
   orgName?: string;
@@ -38,24 +37,9 @@ export function MainSBar({
           <Text style={styles.roleLabel} numberOfLines={1}>
             {roleLabel}
           </Text>
-          <MaskedView
-            maskElement={
-              <Text style={styles.orgName} numberOfLines={1}>
-                {orgName}
-              </Text>
-            }
-          >
-            <LinearGradient
-              start={Themer.primaryGradient.start}
-              end={Themer.primaryGradient.end}
-              colors={Themer.primaryGradient.colors}
-              locations={Themer.primaryGradient.locations}
-            >
-              <Text style={[styles.orgName, styles.orgNameMaskSpacer]} numberOfLines={1}>
-                {orgName}
-              </Text>
-            </LinearGradient>
-          </MaskedView>
+          <GradientText style={styles.orgName} numberOfLines={1}>
+            {orgName}
+          </GradientText>
         </View>
 
         <View style={styles.actions}>
@@ -94,9 +78,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1A1A1A',
     marginTop: 1,
-  },
-  orgNameMaskSpacer: {
-    opacity: 0,
   },
   actions: {
     flexDirection: 'row',

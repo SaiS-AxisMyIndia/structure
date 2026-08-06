@@ -87,7 +87,6 @@ export function renderProfileProgressCard(item: ProfileProgressCardItem, onPress
 const styles = StyleSheet.create({
   card: {
     width: 150,
-    height: 140,
     alignItems: 'center',
     backgroundColor: AppColors.white,
     borderRadius: 10,

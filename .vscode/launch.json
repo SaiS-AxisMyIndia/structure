@@ -52,28 +52,27 @@
       "cwd": "${workspaceFolder}",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:8081",
+      "url": "http://localhost:8080",
       "webRoot": "${workspaceFolder}",
-      "env": { "ENVFILE": ".env.dev" },
-      "preLaunchTask": "Start Mock Server"
+      "preLaunchTask": "Prepare Web DEV (mock server + webpack)"
     },
     {
       "name": "Web - UAT",
       "cwd": "${workspaceFolder}",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:8081",
+      "url": "http://localhost:8080",
       "webRoot": "${workspaceFolder}",
-      "env": { "ENVFILE": ".env.uat" }
+      "preLaunchTask": "Start Web Dev Server - UAT"
     },
     {
       "name": "Web - PROD",
       "cwd": "${workspaceFolder}",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:8081",
+      "url": "http://localhost:8080",
       "webRoot": "${workspaceFolder}",
-      "env": { "ENVFILE": ".env.prod" }
+      "preLaunchTask": "Start Web Dev Server - PROD"
     },
     {
       "name": "Attach to packager",

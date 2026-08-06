@@ -38,15 +38,19 @@ export const AppConstants = {
   },
 
   breakPoints: {
-    web: 1200,
-    tablet: 1000,
+    web: 1300,
+    tablet: 1100,
     mobile: 600,
   },
   maxWidth:{
     web: 1200,
-    tablet: 750,
+    tablet: 800,
     mobile: 450,
-  }
+  },
+
+  // Filter chip row shown above the news feed. First entry is the
+  // "no filter" option - selecting it deselects every other chip.
+  newsCategories: ['All', 'AMI News', 'Health', 'Agriculture', 'Environment'],
 
 } as const;
 

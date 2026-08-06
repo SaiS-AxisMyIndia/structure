@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Toast from 'react-native-simple-toast';
 import { HomeCases } from './HomeCases';
-import { HomeSummary } from './HomeRepo';
+import { HomeSummary, YouMightLikeItem } from './HomeRepo';
 import { ProfileCases } from '../profile/ProfileCases';
 import { ProfileProgressCardItem } from '../../../config/components/profile/ProfileProgressModel';
 import { NewsCases } from '../news/NewsCases';
@@ -12,6 +12,7 @@ export function useHomeController() {
   const [summary, setSummary] = useState<HomeSummary | null>(null);
   const [inactiveProfileCards, setInactiveProfileCards] = useState<ProfileProgressCardItem[]>([]);
   const [preferredNews, setPreferredNews] = useState<CompactNewsItem[]>([]);
+  const [youMightLike, setYouMightLike] = useState<YouMightLikeItem[]>([]);
   const loadingController = useLoadingController();
 
   // TODO: navigate to the section's edit/detail screen once a route exists.
@@ -22,14 +23,16 @@ export function useHomeController() {
   const load = async () => {
     loadingController.setLoading(true);
     try {
-      const [homeSummary, cards, news] = await Promise.all([
+      const [homeSummary, cards, news, likes] = await Promise.all([
         HomeCases.getSummary(),
         ProfileCases.listInactiveProgressCards(),
         NewsCases.preferredNewsFeed(),
+        HomeCases.listYouMightLike(),
       ]);
       setSummary(homeSummary);
       setInactiveProfileCards(cards);
       setPreferredNews(news);
+      setYouMightLike(likes);
       loadingController.setLoading(false);
       await new Promise<void>(resolve => setTimeout(() => resolve(), 200));
       loadingController.setHover(true);
@@ -49,6 +52,7 @@ export function useHomeController() {
     inactiveProfileCards,
     onCardPress,
     preferredNews,
+    youMightLike,
     reload: load,
     loadingController,
   };

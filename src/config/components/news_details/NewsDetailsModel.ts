@@ -32,6 +32,8 @@ export type NewsDetails = {
   id: string;
   source: string;
   sourceLogo: string;
+  // ISO 8601 UTC datetime string as sent by the server, not pre-formatted -
+  // run through DateFormatter.smart() at render time. See NewsBase.time.
   time: string;
   title: string;
   // Hero image shown above the title - distinct from the `blocks` body

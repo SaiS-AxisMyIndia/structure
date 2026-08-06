@@ -68,6 +68,26 @@ export function NotificationPage() {
               }
             />
           }
+          web={
+            <LoadingView
+              controller={controller.loadingController}
+              onRefresh={reload}
+              body={
+                <FlatList
+                  data={notifications}
+                  keyExtractor={item => item.id}
+                  onRefresh={reload}
+                  refreshing={loading}
+                  contentContainerStyle={styles.list}
+                  onViewableItemsChanged={onViewableItemsChanged}
+                  viewabilityConfig={VIEWABILITY_CONFIG}
+                  renderItem={({ item }) => {
+                    return <TabletCenter>{renderNotificationTile(item, visibleIds.has(item.id))}</TabletCenter>;
+                  }}
+                />
+              }
+            />
+          }
         />
       }
     />

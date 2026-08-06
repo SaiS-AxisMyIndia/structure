@@ -6,6 +6,7 @@ import { SvgIcons } from '../images/svg_icons';
 import { useAAudioPlayerController } from './AAudioPlayerController';
 import { PlayerProgressTrack } from './PlayerProgressTrack';
 import { SpinningRing } from './SpinningRing';
+import { StringFormatter } from '../../utils/StringFormatter';
 
 export type AAudioPlayerProps = {
   source: string;
@@ -35,7 +36,7 @@ function fileNameFromSource(source: string): string {
 export function AAudioPlayer({ source, title, isActive = true }: AAudioPlayerProps) {
   const player = useAAudioPlayerController(source, isActive);
   const committedProgress = player.duration > 0 ? player.currentTime / player.duration : 0;
-  const displayTitle = title || fileNameFromSource(source);
+  const displayTitle = StringFormatter.upperSentence(title ?? fileNameFromSource(source));
 
   return (
     <View style={styles.container}>

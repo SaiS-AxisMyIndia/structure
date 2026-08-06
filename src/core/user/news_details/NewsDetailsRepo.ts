@@ -2,13 +2,17 @@ import { NewsDetails, RelatedNewsItem } from '../../../config/components/news_de
 
 const CNBC_LOGO = 'https://picsum.photos/seed/cnbc-logo/80/80';
 
+// Stands in for the server's UTC timestamp on each item - see NewsRepo.ts.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const isoDaysAgo = (days: number) => new Date(Date.now() - days * DAY_MS).toISOString();
+
 const RELATED: RelatedNewsItem[] = [
   {
     id: 'r1',
     kind: 'compact',
     source: 'CNBC TV18',
     sourceLogo: CNBC_LOGO,
-    time: 'Today',
+    time: isoDaysAgo(0),
     title: 'Markets end higher led by IT and banking stocks',
     image: 'https://picsum.photos/seed/related-1/200/200',
     views: 54000,
@@ -19,7 +23,7 @@ const RELATED: RelatedNewsItem[] = [
     kind: 'compact',
     source: 'CNBC TV18',
     sourceLogo: CNBC_LOGO,
-    time: 'Today',
+    time: isoDaysAgo(0),
     title: 'Rupee gains against dollar as crude oil prices ease',
     image: 'https://picsum.photos/seed/related-2/200/200',
     views: 31000,
@@ -30,7 +34,7 @@ const RELATED: RelatedNewsItem[] = [
     kind: 'compact',
     source: 'CNBC TV18',
     sourceLogo: CNBC_LOGO,
-    time: 'Yesterday',
+    time: isoDaysAgo(1),
     title: 'Global tech stocks rally after strong earnings season',
     image: 'https://picsum.photos/seed/related-3/200/200',
     views: 18500,
@@ -41,7 +45,7 @@ const RELATED: RelatedNewsItem[] = [
     kind: 'compact',
     source: 'CNBC TV18',
     sourceLogo: CNBC_LOGO,
-    time: 'Yesterday',
+    time: isoDaysAgo(1),
     title: 'RBI holds repo rate steady in latest monetary policy review',
     image: 'https://picsum.photos/seed/related-4/200/200',
     views: 62000,
@@ -53,7 +57,7 @@ const DEFAULT_DETAILS: NewsDetails = {
   id: '1',
   source: 'CNBC TV18',
   sourceLogo: CNBC_LOGO,
-  time: 'Today',
+  time: isoDaysAgo(0),
   title: "Trump floods social media with AI images targeting rivals and promoting 'Trump 2028' | In pics",
   image: 'https://picsum.photos/seed/breaking-news/800/450',
   views: 200000,

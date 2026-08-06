@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Video, { ResizeMode } from 'react-native-video';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import { AppColors } from '../../theme/AppColors';
@@ -23,6 +23,26 @@ const YOUTUBE_ID_PATTERN = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|yout
 function extractYoutubeId(source: string): string {
   return source.match(YOUTUBE_ID_PATTERN)?.[1] ?? source;
 }
+
+// react-native-youtube-iframe's player page (whether fetched from its
+// hosted iframe_v2.html or generated locally via `useLocalHTML`) reports
+// ready/state-change/error events back by calling
+// `window.ReactNativeWebView.postMessage(...)` - a global that real native
+// WebViews auto-inject, but that nothing provides on web. Every one of
+// those calls throws there (uncaught "Cannot read properties of undefined
+// (reading 'postMessage')"), so onReady/onChangeState/onError never fire
+// and isLoading/duration/progress never sync. `useLocalHTML` + this
+// `injectedJavaScript` (both officially supported props) polyfill that
+// global with the browser-standard equivalent before the page's own script
+// can call it, relaying through `window.parent.postMessage` - which
+// react-native-web-webview already listens for.
+const WEB_RN_WEBVIEW_BRIDGE_POLYFILL = `
+  window.ReactNativeWebView = window.ReactNativeWebView || {
+    postMessage: function (message) {
+      window.parent.postMessage(message, '*');
+    },
+  };
+`;
 
 function formatTime(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
@@ -71,6 +91,9 @@ function YoutubeVideoView({ source, aspectRatio, player }: VideoViewProps) {
             onReady={player.onYoutubeReady}
             onError={player.onYoutubeError}
             onChangeState={player.onYoutubeChangeState}
+            {...(Platform.OS === 'web'
+              ? { useLocalHTML: true, webViewProps: { injectedJavaScript: WEB_RN_WEBVIEW_BRIDGE_POLYFILL } }
+              : {})}
           />
         )}
       </View>

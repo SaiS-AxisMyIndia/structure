@@ -1,12 +1,11 @@
 import React from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
-import MaskedView from '@react-native-masked-view/masked-view';
-import LinearGradient from 'react-native-linear-gradient';
 import { SvgIcon } from '../images/SvgIcon';
 import { SvgIcons } from '../images/svg_icons';
 import { AppColors } from '../../theme/AppColors';
 import { Themer } from '../../theme/Themer';
 import { Routes } from '../../routes/registry';
+import { GradientText } from './GradientText';
 
 export type MainBarProps = {
   userName: string;
@@ -35,27 +34,12 @@ export function MainBar({
       </Pressable>
 
       <View style={styles.greeting}>
-        <Text style={styles.greetingLabel} numberOfLines={1}>
+        <GradientText style={styles.greetingLabel} numberOfLines={1}>
           {greeting}
-        </Text>
-        <MaskedView
-          maskElement={
-            <Text style={styles.userName} numberOfLines={1}>
-              {userName}
-            </Text>
-          }
-        >
-          <LinearGradient
-            start={Themer.primaryGradient.start}
-            end={Themer.primaryGradient.end}
-            colors={Themer.primaryGradient.colors}
-            locations={Themer.primaryGradient.locations}
-          >
-            <Text style={[styles.userName, styles.userNameMaskSpacer]} numberOfLines={1}>
-              {userName}
-            </Text>
-          </LinearGradient>
-        </MaskedView>
+        </GradientText>
+        <GradientText style={styles.userName} numberOfLines={1}>
+          {userName}
+        </GradientText>
       </View>
 
       <View style={styles.actions}>
@@ -111,9 +95,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1A1A1A',
     marginTop: 1,
-  },
-  userNameMaskSpacer: {
-    opacity: 0,
   },
   actions: {
     flexDirection: 'row',

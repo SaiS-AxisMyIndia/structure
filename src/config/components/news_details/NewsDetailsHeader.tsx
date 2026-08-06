@@ -5,6 +5,7 @@ import { ImageLoader } from '../images/ImageLoader';
 import { SvgIcon } from '../images/SvgIcon';
 import { SvgIcons } from '../images/svg_icons';
 import { formatViews } from '../news/NewsTiles';
+import { DateFormatter } from '../../utils/DateFormatter';
 
 export type NewsDetailsHeaderProps = {
   source: string;
@@ -34,7 +35,7 @@ export function NewsDetailsHeader({
         <Text style={styles.source} numberOfLines={1}>
           {source}
         </Text>
-        <Text style={styles.time}>{time}</Text>
+        <Text style={styles.time}>{DateFormatter.smart(time)}</Text>
       </View>
       <ImageLoader source={{ uri: image }} style={styles.image} aspectRatio={aspectRatio} borderRadius={10} />
       <Text style={styles.title}>{title}</Text>

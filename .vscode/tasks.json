@@ -115,6 +115,84 @@
       "dependsOn": ["Start Mock Server", "Run iOS - DEV"],
       "dependsOrder": "sequence",
       "problemMatcher": []
+    },
+    {
+      "label": "Start Web Dev Server - DEV",
+      "type": "shell",
+      "command": "npm run web",
+      "options": {
+        "env": { "APP_ENV": "dev" }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "close": false
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(never matches)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "compiled (successfully|with)"
+        }
+      }
+    },
+    {
+      "label": "Start Web Dev Server - UAT",
+      "type": "shell",
+      "command": "npm run web",
+      "options": {
+        "env": { "APP_ENV": "uat" }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "close": false
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(never matches)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "compiled (successfully|with)"
+        }
+      }
+    },
+    {
+      "label": "Start Web Dev Server - PROD",
+      "type": "shell",
+      "command": "npm run web",
+      "options": {
+        "env": { "APP_ENV": "prod" }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "close": false
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(never matches)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "compiled (successfully|with)"
+        }
+      }
+    },
+    {
+      "label": "Prepare Web DEV (mock server + webpack)",
+      "dependsOn": ["Start Mock Server", "Start Web Dev Server - DEV"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
     }
   ]
 }

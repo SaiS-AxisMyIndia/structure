@@ -8,10 +8,9 @@ function isCompact(item: NewsItem): item is CompactNewsItem {
 }
 
 export const NewsCases = {
-  listNews: (): Promise<NewsItem[]> => NewsRepo.fetchNews(),
-  // A short, capped slice of the feed for surfacing elsewhere (e.g. Home).
-  // Only compact-kind items fit that narrow slot - banner/video items are
-  // skipped rather than squeezed in.
+  
+  listNewsByCategory: (category: string): Promise<NewsItem[]> => NewsRepo.fetchNewsByCategory(category),
+  
   preferredNewsFeed: async (): Promise<CompactNewsItem[]> =>
     (await NewsRepo.fetchNews()).filter(isCompact).slice(0, PREFERRED_FEED_LIMIT),
 };

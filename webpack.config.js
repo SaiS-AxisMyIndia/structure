@@ -38,6 +38,7 @@ module.exports = (env, argv) => {
         'react-native-config$': path.resolve(__dirname, 'web/shims/react-native-config.js'),
         'react-native-sound$': path.resolve(__dirname, 'web/shims/react-native-sound.js'),
         'react-native-linear-gradient$': path.resolve(__dirname, 'web/shims/react-native-linear-gradient.js'),
+        'react-native-simple-toast$': path.resolve(__dirname, 'web/shims/react-native-simple-toast.js'),
       },
     },
     module: {
@@ -45,6 +46,16 @@ module.exports = (env, argv) => {
         {
           test: /\.(js|jsx|ts|tsx)$/,
           exclude: resourcePath => {
+            // Hand-written CJS shims, not RN/JSX source - and critically,
+            // babel-plugin-react-native-web's `commonjs: true` require()
+            // rewriter assumes every react-native-web sub-export is wrapped
+            // in a CJS `.default` (`require('react-native-web/dist/cjs/
+            // exports/View').default`), which this installed react-native-web
+            // version doesn't do - that produces `View: undefined` and a
+            // "got undefined" element-type error. Skip the plugin for these
+            // files; the plain `resolve.alias` (react-native -> react-native-web)
+            // already resolves their requires correctly without it.
+            if (resourcePath.startsWith(path.resolve(__dirname, 'web/shims'))) return true;
             if (!resourcePath.includes('node_modules')) return false;
             return !/[\\/](react-native[^\\/]*|@react-native[^\\/]*|@react-navigation)[\\/]/.test(resourcePath);
           },

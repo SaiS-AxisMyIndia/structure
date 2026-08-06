@@ -5,6 +5,8 @@ export type NotificationBase = {
   title: string;
   description?: string;
   status: NotificationStatus;
+  // ISO 8601 UTC datetime string as sent by the server, not pre-formatted -
+  // run through DateFormatter.smart() at render time. See NewsBase.time.
   time: string;
   // Where tapping this notification should go - passed straight to
   // Routes.deepLink(), so it can be a plain route path, an `<Internal>`

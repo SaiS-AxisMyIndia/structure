@@ -7,6 +7,7 @@ import { SvgIcon } from '../images/SvgIcon';
 import { SvgIcons } from '../images/svg_icons';
 import { AVideoPlayer } from '../players/AVideoPlayer';
 import { Routes } from '../../routes/registry';
+import { DateFormatter } from '../../utils/DateFormatter';
 import { BannerNewsItem, CompactNewsItem, NewsItem, VideoNewsItem } from './NewsModel';
 
 export function formatViews(views: number): string {
@@ -71,7 +72,7 @@ function NewsTileFrame({
         <Text style={styles.source} numberOfLines={1}>
           {source}
         </Text>
-        <Text style={styles.time}>{time}</Text>
+        <Text style={styles.time}>{DateFormatter.smart(time)}</Text>
       </View>
       {children}
       <View style={styles.footer}>

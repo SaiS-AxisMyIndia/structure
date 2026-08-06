@@ -2,6 +2,10 @@ export type NewsBase = {
   id: string;
   source: string;
   sourceLogo: string;
+  // ISO 8601 UTC datetime string as sent by the server (e.g.
+  // "2026-08-05T09:30:00.000Z") - not pre-formatted. Tiles run this through
+  // DateFormatter.smart() at render time to get the "Today"/"Yesterday"/etc.
+  // display label.
   time: string;
   title: string;
   image: string;

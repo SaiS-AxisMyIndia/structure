@@ -3,6 +3,8 @@ export type Profile = {
   name: string;
   email: string;
   phone: string;
+  // Falls back to a placeholder avatar in the UI when empty/undefined.
+  image?: string;
 };
 
 export type ProfileSectionStatus = {

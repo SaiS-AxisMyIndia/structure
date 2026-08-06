@@ -25,6 +25,7 @@ import share from '../../../../assets/icons/ic_share.svg';
 import eye from '../../../../assets/icons/ic_eye.svg';
 import check from '../../../../assets/icons/ic_check.svg';
 import arrowUpRight from '../../../../assets/icons/ic_arrow_up_right.svg';
+import hospital from '../../../../assets/icons/ic_hospital.svg';
 
 export const SvgIcons = {
   back,
@@ -54,4 +55,5 @@ export const SvgIcons = {
   eye,
   check,
   arrowUpRight,
+  hospital,
 } as const;
