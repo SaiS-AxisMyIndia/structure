@@ -52,13 +52,24 @@ class Kernel
     public function handle(): void
     {
         $request = new Request();
-        $result = $this->router->dispatch($request);
+
+        // A thrown PacketFailed (from a controller, a middleware, InputBag's
+        // own validation, Router's "not found" fallback — anywhere) is
+        // caught here, once, and converted with its real status — the
+        // "auto convert" half of PacketFailed/PacketSuccess: nothing in
+        // between ever needs to call Response::json() itself.
+        try {
+            $result = $this->router->dispatch($request);
+        } catch (PacketFailed $failure) {
+            Response::json($failure->toPacket(), $failure->status());
+        }
 
         // dispatch() only returns when a route handler didn't already send
-        // its own response (e.g. Response::json()/Page::send() inside the
+        // its own response (e.g. Response::html()/Page::send() inside the
         // controller). A returned Page is rendered and sent as HTML; a
-        // Packet is passed through as-is; anything else is wrapped in one
-        // — Response::json() only ever accepts a Packet.
+        // Packet (including a PacketSuccess) is passed through as-is;
+        // anything else is wrapped in one — Response::json() only ever
+        // accepts a Packet.
         if ($result instanceof Page) {
             Response::html($result->render());
         }

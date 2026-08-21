@@ -2,17 +2,17 @@
 
 >> device id in session and role(optional and it is list) also
 
->> make sure default port for start is 7070
+-- make sure default port for start is 7070
 
 -- avoid Page returns in tester
 
->> in tester the fields we have to show as per request validator(required *, optional)
+-- in tester the fields we have to show as per request validator(required *, optional)
 
 -- cache the fills on the fields
 
 -- add token persistence save for all apis add at app bar right side
 
->> by default collapse all controller bar in tester
+-- by default collapse all controller bar in tester
 
 >> in prosql need #[ProEntity(<table name>)]
 for each variable extention like #Primary(int/uuid/bigint etc), #Link(table.column), #Timestamp(?current, update = true?false)

@@ -473,7 +473,15 @@ final class RouteCompiler
 
     private static function toRegex(string $path): string
     {
-        $pattern = preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $path);
+        // `[^/]*` — zero or more, not one or more — so a genuinely empty
+        // segment (e.g. requesting ".../{id}" with nothing after the
+        // final slash) still MATCHES this route (with params['id'] === '')
+        // instead of falling through to the router's generic 404. That
+        // hands the empty value to the controller's own InputBag call,
+        // which reports the real, specific validation error ("'id' is
+        // required." / "must be an integer.") — see Request::$path for
+        // the other half of why this matters.
+        $pattern = preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]*)', $path);
 
         return '#^' . $pattern . '$#';
     }

@@ -74,7 +74,7 @@ class Router
             }
         }
 
-        Response::json((new Packet())->failed('Not Found', ['path' => $request->path]), 404);
+        throw new PacketFailed('Not Found', 404, ['path' => $request->path]);
     }
 
     /**

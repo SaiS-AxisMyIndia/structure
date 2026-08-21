@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Session;
 
 use ApiPro\Packet;
+use ApiPro\PacketFailed;
 
 /**
  * A stateless, JWT-style session — not native $_SESSION. One Session
@@ -90,8 +91,9 @@ class Session
      * request), the packet is returned as-is with no token — a route that
      * never needed a session at all shouldn't be forced to carry one. But
      * if there IS a current token and encoding it comes back empty (e.g.
-     * the encryption round-trip itself failed), that's treated exactly
-     * like an expired token rather than ever emitting a broken response.
+     * the encryption round-trip itself failed), that's a real server-side
+     * failure — thrown as a PacketFailed(500) rather than ever silently
+     * emitting a 200 response with a "failed" body.
      */
     public function response(Packet $packet): Packet
     {
@@ -104,7 +106,7 @@ class Session
         $token = $this->codec->encode($this->current);
 
         if ($token === null || $token === '') {
-            return (new Packet())->failed('Token expired');
+            throw new PacketFailed('Failed to encode session token', 500);
         }
 
         return $packet->with('token', $token);

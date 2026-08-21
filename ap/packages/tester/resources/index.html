@@ -52,7 +52,8 @@
   .panel .comment.collapsed { display: none; }
   .panel .headers-body { margin-bottom: 16px; }
   .panel .headers-body.collapsed { display: none; }
-  .headers-defaults { color: var(--muted); font-size: 11px; font-family: ui-monospace, monospace; margin-bottom: 6px; }
+  .headers-defaults-label { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+  .headers-defaults { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--muted); font-family: ui-monospace, monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; margin: 0 0 10px; }
   label { display: block; font-size: 12px; color: var(--muted); margin: 14px 0 4px; }
   .field { margin-bottom: 8px; }
   .field-label { display: flex; align-items: baseline; gap: 6px; margin: 0 0 4px; }
@@ -448,16 +449,15 @@ function renderForm(route) {
 
   // What Send already attaches on its own — Authorization from the app
   // bar's token (if any) and Content-Type for a JSON body — shown as a
-  // read-only preview so the custom-headers box below only needs to cover
-  // what ISN'T already sent automatically.
+  // read-only JSON preview (a <pre>, not an input) so the custom-headers
+  // box below only needs to cover what ISN'T already sent automatically.
+  // pre-wrap + break-all so a long token wraps instead of overflowing.
   const defaultHeaders = {};
   const currentToken = getGlobalToken();
   if (currentToken) defaultHeaders['Authorization'] = 'Bearer ' + currentToken;
   if (['POST', 'PUT', 'PATCH'].includes(route.method)) defaultHeaders['Content-Type'] = 'application/json';
-  const defaultsText = Object.keys(defaultHeaders).length
-    ? 'Sent automatically: ' + Object.entries(defaultHeaders).map(([k, v]) => k + ': ' + v).join(', ')
-    : 'Sent automatically: none (no token set, no JSON body)';
-  headersBody.appendChild(el('div', { class: 'headers-defaults', text: defaultsText }));
+  headersBody.appendChild(el('div', { class: 'headers-defaults-label', text: 'Sent automatically:' }));
+  headersBody.appendChild(el('pre', { class: 'headers-defaults', text: JSON.stringify(defaultHeaders, null, 2) }));
 
   const headersInput = el('textarea', { placeholder: '{\n  "X-Custom-Header": "value"\n}' });
   headersInput.value = fieldCache['headers:raw'] || '';
@@ -489,6 +489,7 @@ function renderForm(route) {
 
   const params = pathParams(route.path);
   const paramInputs = {};
+  const paramRequired = {};
 
   if (params.length) {
     panel.appendChild(el('label', { text: 'Path parameters' }));
@@ -496,6 +497,7 @@ function renderForm(route) {
     params.forEach(p => {
       const detected = paramFieldsByKey[p];
       const required = detected ? detected.required : true;
+      paramRequired[p] = required;
 
       const wrap = el('div', {});
       const labelRow = el('div', { class: 'field-label' });
@@ -545,6 +547,35 @@ function renderForm(route) {
   panel.appendChild(resp);
 
   sendBtn.onclick = async () => {
+    // A required field left blank used to still go out — for a path
+    // param that meant a literally malformed URL (e.g. "/api/users/"
+    // with the {id} segment just missing), not the 400 InputBag would
+    // have reported for a blank query/body field. Caught here, before
+    // any request is built, so Send simply refuses instead of shipping
+    // a broken request (or curl copy of one).
+    const missing = [];
+    params.forEach(p => { if (paramRequired[p] && !paramInputs[p].value.trim()) missing.push(p); });
+    if (queryInputs) {
+      Object.keys(queryInputs).forEach(key => {
+        const { input, field } = queryInputs[key];
+        if (field.required && !input.value.trim()) missing.push(key);
+      });
+    }
+    if (bodyInputs) {
+      Object.keys(bodyInputs).forEach(key => {
+        const { input, field } = bodyInputs[key];
+        if (field.required && !input.value.trim()) missing.push(key);
+      });
+    }
+    if (missing.length) {
+      resp.innerHTML = '';
+      resp.appendChild(el('div', {
+        class: 'status status-err',
+        text: 'Fill in required field' + (missing.length > 1 ? 's' : '') + ': ' + missing.join(', '),
+      }));
+      return;
+    }
+
     let path = route.path;
     for (const p of params) {
       path = path.replace('{' + p + '}', encodeURIComponent(paramInputs[p].value));

@@ -6,8 +6,8 @@ namespace Session;
 
 use ApiPro\MiddlewareInterface;
 use ApiPro\Packet;
+use ApiPro\PacketFailed;
 use ApiPro\Request;
-use ApiPro\Response;
 use LogicException;
 
 /**
@@ -59,7 +59,7 @@ class SessionMiddleware implements MiddlewareInterface
         $resolved = $token !== null ? $session->resolve($token) : null;
 
         if ($this->mandatory && $resolved === null) {
-            Response::json((new Packet())->failed('Token expired'), 401);
+            throw new PacketFailed('Token expired', 401);
         }
 
         $result = $next($request);

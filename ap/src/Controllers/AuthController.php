@@ -8,9 +8,8 @@ use App\Services\UserService;
 use ApiPro\Attributes\Middleware;
 use ApiPro\Attributes\PostMapping;
 use ApiPro\Attributes\RestController;
-use ApiPro\Packet;
+use ApiPro\PacketFailed;
 use ApiPro\Request;
-use ApiPro\Response;
 use Session\Session;
 use Session\SessionMiddleware;
 
@@ -39,7 +38,7 @@ class AuthController
         $user = $this->userService->authenticate($mail, $password);
 
         if ($user === null) {
-            Response::json((new Packet())->failed('Invalid credentials'), 401);
+            throw new PacketFailed('Invalid credentials', 401);
         }
 
         $this->session->create((string) $user['id'], $user);

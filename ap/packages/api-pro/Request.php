@@ -25,9 +25,18 @@ class Request
     {
         $this->method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
+        // Exact, no trailing-slash leniency on purpose: stripping a
+        // trailing slash here would make "/api/users/" (a genuinely empty
+        // {id}) collide with "/api/users" (index()'s own route) before
+        // routing even sees it — silently matching the WRONG route
+        // instead of the intended one with a blank param. RouteCompiler's
+        // regex allows an empty final segment through instead, so a
+        // request like that still reaches the right controller action,
+        // where InputBag's own getInt('id')/getString(...) reports the
+        // real "'id' is required."/"must be an integer." 400 — not a
+        // silently wrong 200.
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
-        $path = parse_url($uri, PHP_URL_PATH) ?: '/';
-        $this->path = $path === '/' ? '/' : rtrim($path, '/');
+        $this->path = parse_url($uri, PHP_URL_PATH) ?: '/';
 
         $this->query = new InputBag($_GET);
 

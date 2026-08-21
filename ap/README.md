@@ -444,8 +444,28 @@ it's the **only** shape `ApiPro\Response::json()` accepts — its signature is
 goes through `Response::json()` — a controller's own explicit call, a 404,
 a 400 from `InputBag`, a 401 from `SessionMiddleware` — is a `Packet`.
 
+`success()`/`failed()` are fluent (they return `$this`, mutating the same
+`Packet`), `with($key, $value)` attaches an extra top-level field (that's
+how `Session::response()` adds `token` without breaking the fixed shape),
+and `message()`/`data()`/`isSuccess()` read back whatever was last set. You
+can still build one by hand this way, but see `PacketSuccess`/`PacketFailed`
+below for the two shapes you'll actually reach for day to day.
+
+A controller action can return either a plain value (an array, a scalar) or
+a `Packet` directly — `Kernel::handle()` passes a `Packet` through as-is,
+and wraps anything else in `Packet::success()` exactly once. **Never call
+`->toArray()` on a `Packet` you're returning from a controller** — that
+hands back a plain array instead of a `Packet`, which `Kernel` then wraps
+in a *second*, outer `Packet`, double-nesting the response. `->toArray()`
+only belongs right where `Response::json()` itself calls it.
+
+### PacketSuccess and PacketFailed — no `Response::json()` needed
+
+`PacketSuccess` and `PacketFailed` are the two shapes you actually write:
+
 ```php
-use ApiPro\Packet;
+use ApiPro\PacketFailed;
+use ApiPro\PacketSuccess;
 
 #[GetMapping('/{id}')]
 public function show(Request $request): array
@@ -453,27 +473,36 @@ public function show(Request $request): array
     $user = $this->userService->find($request->params->getInt('id'));
 
     if ($user === null) {
-        Response::json((new Packet())->failed('User not found'), 404);
+        throw new PacketFailed('User not found', 404);
     }
 
     return $user;   // plain array — Kernel wraps it in Packet::success() for you
 }
+
+#[PostMapping]
+public function store(Request $request): Packet
+{
+    return new PacketSuccess(['mail' => $request->body->getMail('mail')], 'Validated');
+}
 ```
 
-`success()`/`failed()` are fluent (they return `$this`, mutating the same
-`Packet`), `with($key, $value)` attaches an extra top-level field (that's
-how `Session::response()` adds `token` without breaking the fixed shape),
-and `message()`/`data()`/`isSuccess()` read back whatever was last set.
-
-A controller action can return either a plain value (a array, a scalar) or
-a `Packet` directly — `Kernel::handle()` passes a `Packet` through as-is,
-and wraps anything else in `Packet::success()` exactly once. **Never call
-`->toArray()` on a `Packet` you're returning from a controller** — that
-hands back a plain array instead of a `Packet`, which `Kernel` then wraps
-in a *second*, outer `Packet`, double-nesting the response (see
-`UserController::store()`, which returns the `Packet` itself for exactly
-this reason). `->toArray()` only belongs right where `Response::json()`
-itself calls it.
+- **`PacketSuccess($data, $message = 'Success')`** — a named constructor for
+  the success half of `Packet` (`return new PacketSuccess($data, 'msg')`
+  instead of `return (new Packet())->success($data, 'msg')`). It's still
+  just a `Packet` — only reach for it when you want a custom message; a
+  plain array/scalar return already auto-wraps for free.
+- **`PacketFailed($message, $status = 400, $data = null)`** — throw this
+  from *anywhere* — a controller, a middleware, `InputBag`'s own
+  validation, `Router`'s "not found" fallback — to fail a request with a
+  real HTTP status, with **no `Response::json()` call at all**.
+  `Kernel::handle()` catches `PacketFailed` in exactly one place and
+  converts it to the matching `{success:false,...}` response with that
+  status — the same "auto convert" `Kernel` already does for a plain
+  return value, just for the failure side. Being a real exception, it
+  propagates through any number of middleware layers on its own (e.g. a
+  controller throwing it skips `SessionMiddleware`'s token re-attachment
+  entirely, the same as the old `Response::json()` + `exit` did) — nothing
+  in between needs to catch or rethrow it.
 
 ## Using Page — a complete HTML page
 

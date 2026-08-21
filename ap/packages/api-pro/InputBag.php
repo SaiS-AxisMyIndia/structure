@@ -197,7 +197,7 @@ final class InputBag implements ArrayAccess, Countable, IteratorAggregate
 
     private function fail(string $message): never
     {
-        Response::json((new Packet())->failed($message), 400);
+        throw new PacketFailed($message, 400);
     }
 
     public function offsetExists(mixed $offset): bool

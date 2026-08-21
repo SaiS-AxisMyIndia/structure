@@ -10,8 +10,9 @@ use ApiPro\Attributes\Middleware;
 use ApiPro\Attributes\PostMapping;
 use ApiPro\Attributes\RestController;
 use ApiPro\Packet;
+use ApiPro\PacketFailed;
+use ApiPro\PacketSuccess;
 use ApiPro\Request;
-use ApiPro\Response;
 use Session\SessionMiddleware;
 use Tester\Tester;
 
@@ -40,23 +41,25 @@ class UserController
     #[GetMapping('/{id}')]
     public function show(Request $request): array
     {
-        Tester::comment("Fetch one user by numeric id.\nReturns 404 (via Packet::failed) if no user with that id exists.");
+        Tester::comment("Fetch one user by numeric id.\nReturns 404 (via PacketFailed) if no user with that id exists.");
 
         // getInt() with no default -> mandatory: a non-integer {id} 400s
-        // via Packet before find() is even called.
-        $user = $this->userService->find($request->params->getInt('id'));
+        // via PacketFailed before find() is even called.
+        $id = $request->params->getInt('id');
+        $user = $this->userService->find($id);
 
         if ($user === null) {
-            Response::json((new Packet())->failed('User not found'), 404);
+            throw new PacketFailed('User not found', 404);
         }
 
         return $user;
     }
 
-    // Returns a Packet directly (not ->toArray()) — Kernel/Response::json
-    // pass a Packet through as-is; calling ->toArray() here would hand
-    // back a plain array instead, which then gets wrapped in a SECOND
-    // Packet by Kernel::handle(), double-nesting the response.
+    // Returns a Packet directly (a PacketSuccess, not ->toArray()) —
+    // Kernel/Response::json pass a Packet through as-is; calling
+    // ->toArray() here would hand back a plain array instead, which then
+    // gets wrapped in a SECOND Packet by Kernel::handle(), double-nesting
+    // the response.
     #[PostMapping]
     public function store(Request $request): Packet
     {
@@ -67,7 +70,7 @@ class UserController
         $roles = $request->body->getJson('roles', []);
         $language = $request->query->getString('lang', 'en');
 
-        return (new Packet())->success([
+        return new PacketSuccess([
             'mail' => $mail,
             'roles' => $roles,
             'language' => $language,
