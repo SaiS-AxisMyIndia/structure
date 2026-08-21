@@ -43,9 +43,11 @@ class UserController
     {
         Tester::comment("Fetch one user by numeric id.\nReturns 404 (via PacketFailed) if no user with that id exists.");
 
-        // getInt() with no default -> mandatory: a non-integer {id} 400s
-        // via PacketFailed before find() is even called.
-        $id = $request->params->getInt('id');
+        // getInt(..., 0) -> optional: a missing/blank {id} (e.g. "/users/")
+        // falls back to 0 rather than 400ing — find(0) then just 404s like
+        // any other unknown id. A NON-blank, non-integer {id} (e.g. "abc")
+        // still 400s via PacketFailed before find() is even called.
+        $id = $request->params->getInt('id', 0);
         $user = $this->userService->find($id);
 
         if ($user === null) {

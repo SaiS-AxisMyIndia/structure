@@ -21,11 +21,17 @@ use Traversable;
  * the wrong type, fails the whole request with a 400 `Packet` before your
  * controller code ever runs. Pass any other value as the default —
  * including '', 0, false, or [] — and the key becomes OPTIONAL; that value
- * is simply what you get back when the key is absent.
+ * is what you get back when the key is absent, OR when it's present but
+ * blank (an empty string) and can't be coerced into the target type — a
+ * path param like `{id}` captures exactly that when its URL segment is
+ * empty, so an optional getInt('id', 0) degrades to 0 instead of 400ing
+ * on a value that was never really "an integer" or "not an integer",
+ * just missing. A present, NON-blank value that still doesn't coerce
+ * (e.g. "abc" for getInt()) always 400s, optional or not.
  *
  *   $request->body->getMail('mail');                 // required — 400 if missing/invalid
  *   $request->params->getString('lang', 'en');        // optional — 'en' if absent
- *   $request->body->getInt('age', 0);                 // optional — 0 if absent
+ *   $request->body->getInt('age', 0);                 // optional — 0 if absent OR blank
  */
 final class InputBag implements ArrayAccess, Countable, IteratorAggregate
 {
@@ -166,9 +172,22 @@ final class InputBag implements ArrayAccess, Countable, IteratorAggregate
             return $default;
         }
 
-        $coerced = $coerce($this->items[$key]);
+        $raw = $this->items[$key];
+        $coerced = $coerce($raw);
 
         if ($coerced === null) {
+            // A blank string can't coerce into an int/float/bool/array/JSON
+            // value — but it isn't really "a value" for those types either
+            // (this is exactly what a route placeholder like {id} captures
+            // when the URL segment itself is empty). Optional (a default
+            // was given) treats that the same as absent, instead of
+            // failing a type check that was never really the point;
+            // mandatory (no default at all) still 400s — there's nothing
+            // to fall back to.
+            if (!$mandatory && $raw === '') {
+                return $default;
+            }
+
             $this->fail("'$key' must be $expected.");
         }
 
@@ -186,9 +205,16 @@ final class InputBag implements ArrayAccess, Countable, IteratorAggregate
             return '';
         }
 
-        $coerced = $coerce($this->items[$key]);
+        $raw = $this->items[$key];
+        $coerced = $coerce($raw);
 
         if ($coerced === null) {
+            // Same "blank means absent, once it's already optional"
+            // treatment as resolve() above.
+            if (!$required && $raw === '') {
+                return '';
+            }
+
             $this->fail("'$key' must be $expected.");
         }
 

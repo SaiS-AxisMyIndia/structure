@@ -609,6 +609,7 @@ validating getters: `getString`, `getInt`, `getFloat`, `getBool`,
 
 ```php
 use ApiPro\Packet;
+use ApiPro\PacketSuccess;
 
 #[PostMapping]
 public function store(Request $request): Packet
@@ -618,7 +619,7 @@ public function store(Request $request): Packet
     $roles = $request->body->getJson('roles', []);        // optional — [] if absent
     $language = $request->query->getString('lang', 'en'); // optional query string value
 
-    return (new Packet())->success([...], 'Validated');   // return the Packet, not ->toArray()
+    return new PacketSuccess([...], 'Validated');
 }
 ```
 
@@ -627,9 +628,20 @@ The rule is the same for every getter except `getMail`/`getPassword`:
 missing, or present with the wrong type, fails the whole request with a
 `400` `Packet` before your controller body runs any further. Pass anything
 else as the default — `''`, `0`, `false`, `[]` all count — and it's
-optional; that's what comes back when the key is absent. `getMail`/
-`getPassword` take a `required: bool` (default `true`) instead of a
-default value, since there's no sensible "default" email or password.
+optional; that's what comes back when the key is **absent, or present but
+blank** (an empty string that can't coerce into the target type — exactly
+what a route placeholder like `{id}` captures when its URL segment is
+empty). `getMail`/`getPassword` take a `required: bool` (default `true`)
+instead of a default value, since there's no sensible "default" email or
+password.
+
+```php
+$id = $request->params->getInt('id', 0);   // "/users/" (blank {id}) -> 0, not a 400
+```
+
+A present, **non-blank** value that still doesn't coerce (`"abc"` for
+`getInt`) always 400s — optional or not; only a genuinely blank value
+falls back to the default.
 
 `getInt`/`getFloat`/`getBool` accept sensibly-typed strings too (route
 placeholders and query values always arrive as strings) — `"42"` passes
