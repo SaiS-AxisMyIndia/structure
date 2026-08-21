@@ -1,0 +1,31 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # runner/ holds boot-time config (DB/session settings, the controller
+    # list) — never reachable directly, only ever require()'d by index.php.
+    RewriteRule ^runner/ - [F,L]
+
+    # apc is a CLI script (`php apc ...`), not a web endpoint.
+    RewriteRule ^apc$ - [F,L]
+
+    # lib/ holds raw templates (e.g. page.html, with unfilled {{placeholders}})
+    # — meant to be read by Page::render(), never served as-is.
+    RewriteRule ^lib/ - [F,L]
+
+    # Serve real files/directories (if any) directly.
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Everything else goes through the front controller.
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Never serve project/config internals directly.
+<FilesMatch "\.(json|lock|md|env)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_dir.c>
+    DirectorySlash Off
+</IfModule>

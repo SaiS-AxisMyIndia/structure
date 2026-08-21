@@ -1,0 +1,30 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// apc — this project's CLI (api-pro console), the same idea as Laravel's
+// `artisan` or Spring Boot's actuator/admin tooling: operational commands
+// that sit next to the app, not behind an HTTP route.
+//
+//   php apc -v                       app + every package's version
+//   php apc start [host:port]        clean + rebuild, then start PHP's built-in server (default 127.0.0.1:7070)
+//   php apc build                    force-compile + cache the route table now (deploy-time build step)
+//   php apc build -c | --clean       delete the cached route table
+//   php apc install [version]        validate every module's resolved version
+//   php apc module <name> [version]  show/validate one module's resolved info
+//
+// Runs the exact same Runner::boot() as an HTTP request would (module
+// resolution, route compiling/caching rules included) — this is not a
+// separate config path, just a different front door onto the same Runner.
+
+$basePath = __DIR__;
+
+require_once "$basePath/vendor/autoload.php";
+
+use ApiPro\Cli\Application;
+use ApiPro\Runner;
+
+Runner::boot($basePath);
+
+exit((new Application($basePath))->run(array_slice($argv, 1)));

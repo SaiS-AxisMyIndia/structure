@@ -1,0 +1,30 @@
+{
+    "name": "paradigm/api-project",
+    "description": "PHP project bootstrapped on a Spring-Boot-style micro-framework — packages/api-pro is the web framework, packages/pro-sql is the MySQL layer, packages/session is the session/middleware layer, packages/tester is the API explorer, src/ is the application",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "paradigm/api-pro": "*",
+        "paradigm/pro-sql": "*",
+        "paradigm/session": "*",
+        "paradigm/tester": "*"
+    },
+    "repositories": [
+        { "type": "path", "url": "packages/api-pro" },
+        { "type": "path", "url": "packages/pro-sql" },
+        { "type": "path", "url": "packages/session" },
+        { "type": "path", "url": "packages/tester" }
+    ],
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

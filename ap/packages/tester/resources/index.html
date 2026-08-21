@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Tester</title>
+<style>
+  :root {
+    --bg: #0f1720; --panel: #182430; --panel-2: #1e2c3a; --border: #2b3a4a;
+    --text: #e6edf3; --muted: #8b9bab; --accent: #4da3ff;
+    --get: #2f9e5b; --post: #c98a1a; --put: #3d7fc9; --patch: #8b5cf6; --delete: #d64545;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  header .title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .prefix { font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .token-bar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  header .token-bar label { margin: 0; white-space: nowrap; }
+  header .token-bar input[type=text] { width: 280px; margin: 0; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; height: calc(100vh - 57px); }
+  .list { border-right: 1px solid var(--border); overflow-y: auto; padding: 8px; }
+  .group { margin-bottom: 4px; }
+  .group-header { display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; user-select: none; }
+  .group-header:hover { background: var(--panel-2); }
+  .group-header .chevron { font-size: 10px; color: var(--muted); transition: transform .12s ease; display: inline-block; }
+  .group-header.collapsed .chevron { transform: rotate(-90deg); }
+  .group-prefix { font-family: ui-monospace, monospace; font-size: 11px; font-weight: 400; color: var(--muted); }
+  .group-count { color: var(--muted); font-size: 11px; font-weight: 400; margin-left: auto; }
+  .group-routes { padding-left: 6px; }
+  .group-routes.collapsed { display: none; }
+  .route { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 6px; cursor: pointer; margin-bottom: 2px; }
+  .route:hover { background: var(--panel-2); }
+  .route.active { background: var(--panel-2); outline: 1px solid var(--accent); }
+  .method { font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 4px; color: #fff; min-width: 52px; text-align: center; }
+  .method-GET { background: var(--get); } .method-POST { background: var(--post); }
+  .method-PUT { background: var(--put); } .method-PATCH { background: var(--patch); }
+  .method-DELETE { background: var(--delete); }
+  .path { font-size: 13px; font-family: ui-monospace, monospace; word-break: break-all; }
+  .badge { font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; margin-left: auto; }
+  .main { padding: 24px; overflow-y: auto; }
+  .empty { color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-width: 760px; }
+  .panel h2 { margin: 0 0 4px; font-family: ui-monospace, monospace; font-size: 16px; }
+  .panel .mw { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .comment-toggle, .headers-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .comment-toggle .chevron, .headers-toggle .chevron { font-size: 10px; transition: transform .12s ease; display: inline-block; }
+  .comment-toggle.collapsed .chevron, .headers-toggle.collapsed .chevron { transform: rotate(-90deg); }
+  .panel .comment { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin-bottom: 16px; }
+  .panel .comment.collapsed { display: none; }
+  .panel .headers-body { margin-bottom: 16px; }
+  .panel .headers-body.collapsed { display: none; }
+  .headers-defaults { color: var(--muted); font-size: 11px; font-family: ui-monospace, monospace; margin-bottom: 6px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 14px 0 4px; }
+  .field { margin-bottom: 8px; }
+  .field-label { display: flex; align-items: baseline; gap: 6px; margin: 0 0 4px; }
+  .field-label .key { font-family: ui-monospace, monospace; font-size: 12px; color: var(--text); }
+  .field-required { color: var(--delete); font-weight: 700; font-size: 13px; }
+  .field-optional { color: var(--muted); font-size: 11px; }
+  .field-type { font-family: ui-monospace, monospace; font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 0 5px; border-radius: 3px; margin-left: auto; }
+  input[type=text], textarea { width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 13px; }
+  textarea { min-height: 90px; resize: vertical; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  button { background: var(--accent); color: #06192e; border: none; border-radius: 6px; padding: 9px 18px; font-weight: 600; font-size: 13px; cursor: pointer; margin-top: 16px; }
+  button:hover { opacity: .9; }
+  .resp { margin-top: 20px; }
+  .resp .status-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .resp .status { font-family: ui-monospace, monospace; font-size: 13px; }
+  .status-ok { color: var(--get); } .status-err { color: var(--delete); }
+  .resp-icons { display: flex; gap: 6px; flex-shrink: 0; }
+  .icon-btn { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 11px; font-family: ui-monospace, monospace; font-weight: 600; cursor: pointer; margin-top: 0; line-height: 1.4; }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); opacity: 1; }
+  .icon-btn.active { background: var(--accent); color: #06192e; border-color: var(--accent); }
+  pre { background: #0a1119; border: 1px solid var(--border); border-radius: 6px; padding: 14px; overflow-x: auto; font-size: 12px; margin: 0; }
+  pre.wrap { white-space: pre-wrap; word-break: break-all; overflow-x: hidden; }
+  .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    <h1>API Tester</h1>
+    <span class="prefix" id="prefix-badge" style="display:none;"></span>
+    <span class="sub">served at /tester — calls your real endpoints, same-origin</span>
+  </div>
+  <div class="token-bar">
+    <label for="global-token">Bearer token</label>
+    <input type="text" id="global-token" placeholder="paste a token, e.g. from POST /api/auth/login">
+  </div>
+</header>
+
+<div class="layout">
+  <div class="list" id="list"><p class="empty" style="padding:12px;">Loading routes…</p></div>
+  <div class="main" id="main"><p class="empty">Pick an endpoint on the left.</p></div>
+</div>
+
+<script>
+const TOKEN_KEY = 'apc_tester_token';
+const FIELDS_KEY_PREFIX = 'apc_tester_fields:'; // + routeKey(route) per endpoint
+const WRAP_KEY = 'apc_tester_wrap'; // one flag for the whole app, not per-route
+let routes = [];
+let globalPrefix = ''; // e.g. "/api" — shown once, in the header
+let activeKey = null; // `${method} ${path}` of the route whose form is open
+const collapsedGroups = new Set(); // controller names currently collapsed
+
+function el(tag, attrs = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') node.className = v;
+    else if (k === 'text') node.textContent = v;
+    else node.setAttribute(k, v);
+  }
+  for (const c of children) node.appendChild(c);
+  return node;
+}
+
+function routeKey(route) {
+  return route.method + ' ' + route.path;
+}
+
+// Bearer token lives once in the header, not once per route form — every
+// request sent from any endpoint's form reads whatever's currently in
+// this single field. Persisted to localStorage on every keystroke so it
+// survives a page reload, exactly like the per-form field used to.
+function initGlobalToken() {
+  const input = document.getElementById('global-token');
+  input.value = localStorage.getItem(TOKEN_KEY) || '';
+  input.oninput = () => localStorage.setItem(TOKEN_KEY, input.value);
+}
+
+function getGlobalToken() {
+  return (document.getElementById('global-token').value || '').trim();
+}
+
+// Whatever you type into a route's form — path params, query fields,
+// body fields, or the freeform query/body fallbacks alike, no field kind
+// treated specially — is cached per-route so reopening the same endpoint
+// later restores it instead of starting blank. Malformed/missing storage
+// just yields an empty cache rather than breaking the form.
+function loadFieldCache(route) {
+  try {
+    const raw = localStorage.getItem(FIELDS_KEY_PREFIX + routeKey(route));
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveFieldCache(route, cache) {
+  localStorage.setItem(FIELDS_KEY_PREFIX + routeKey(route), JSON.stringify(cache));
+}
+
+// Line-wrap is one flag for the entire tester, not per-route/per-response
+// — flip it once on any response and every response (this one, any other
+// route, after a reload) starts wrapped from then on.
+function isWrapEnabled() {
+  return localStorage.getItem(WRAP_KEY) === '1';
+}
+
+function setWrapEnabled(enabled) {
+  localStorage.setItem(WRAP_KEY, enabled ? '1' : '0');
+}
+
+function pathParams(path) {
+  return [...path.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
+}
+
+// The longest leading path shared by every path given, stopping at the
+// first {param} segment (those vary per route, so they can't be
+// "common") — derived from whatever routes actually exist, never
+// hardcoded, so it stays correct if a prefix ever changes. Used both for
+// the header's global badge (over every route) and for each group's own
+// prefix (over just that controller's routes).
+function commonPrefix(paths) {
+  if (!paths.length) return '';
+  const segmented = paths.map(p => p.split('/').filter(Boolean));
+  const shortest = Math.min(...segmented.map(s => s.length));
+  const common = [];
+  for (let i = 0; i < shortest; i++) {
+    const segment = segmented[0][i];
+    if (segment.startsWith('{')) break;
+    if (!segmented.every(segs => segs[i] === segment)) break;
+    common.push(segment);
+  }
+  return common.length ? '/' + common.join('/') : '';
+}
+
+// What's left of `path` once `prefix` (itself a leading path segment,
+// e.g. from commonPrefix) is removed — "/" if nothing's left, never "".
+function stripPrefix(path, prefix) {
+  if (!prefix || prefix === '/') return path;
+  if (path === prefix) return '/';
+  if (path.startsWith(prefix + '/')) return path.slice(prefix.length);
+  return path; // prefix wasn't actually a leading segment of this path
+}
+
+function groupByController(list) {
+  const groups = new Map();
+  for (const route of list) {
+    const key = route.controller || '(unknown)';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(route);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([controller, groupRoutes]) => {
+      // The controller's actual declared prefix (e.g. "/api/health"),
+      // sent by RouteCompiler — every route in this group shares the same
+      // value by construction, so there's nothing to guess here. (An
+      // earlier version tried to *infer* this by diffing the group's own
+      // paths, which broke the moment a controller had only one route —
+      // one path never has any "shared" prefix to diff against itself.)
+      const fullGroupPrefix = groupRoutes[0].prefix || '';
+      const ownPrefix = stripPrefix(fullGroupPrefix, globalPrefix);
+      return { controller, ownPrefix, fullGroupPrefix, routes: groupRoutes };
+    });
+}
+
+async function loadRoutes() {
+  const res = await fetch('/tester/routes');
+  const body = await res.json();
+  routes = (body.data || []).sort((a, b) => a.path.localeCompare(b.path));
+
+  globalPrefix = commonPrefix(routes.map(r => r.path));
+  const badge = document.getElementById('prefix-badge');
+  if (globalPrefix) {
+    badge.textContent = globalPrefix;
+    badge.style.display = '';
+  }
+
+  // Every controller group starts collapsed — a fresh load of the whole
+  // list, one-time, before the first render; toggling a group afterward
+  // is unaffected by this (collapsedGroups is only ever seeded here, not
+  // re-seeded on every renderList() call).
+  groupByController(routes).forEach(({ controller }) => collapsedGroups.add(controller));
+
+  renderList();
+}
+
+function renderList() {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+
+  groupByController(routes).forEach(({ controller, ownPrefix, fullGroupPrefix, routes: groupRoutes }) => {
+    const isCollapsed = collapsedGroups.has(controller);
+    const group = el('div', { class: 'group' });
+
+    const header = el('div', { class: 'group-header' + (isCollapsed ? ' collapsed' : '') });
+    header.appendChild(el('span', { class: 'chevron', text: '▾' }));
+    header.appendChild(el('span', { text: controller }));
+    if (ownPrefix) header.appendChild(el('span', { class: 'group-prefix', text: ownPrefix }));
+    header.appendChild(el('span', { class: 'group-count', text: String(groupRoutes.length) }));
+    header.onclick = () => {
+      if (collapsedGroups.has(controller)) collapsedGroups.delete(controller);
+      else collapsedGroups.add(controller);
+      renderList();
+    };
+    group.appendChild(header);
+
+    const routesEl = el('div', { class: 'group-routes' + (isCollapsed ? ' collapsed' : '') });
+    groupRoutes.forEach((route) => {
+      const key = routeKey(route);
+      // Trimmed to just what's left after the header's "/api" and this
+      // group's own "/health"/"/users" — e.g. "/logout", "/{id}", or
+      // "/" for the controller's own base route. The full route.path is
+      // still what actually gets requested; only the label is shortened.
+      const displayPath = stripPrefix(route.path, fullGroupPrefix);
+      const row = el('div', { class: 'route' + (activeKey === key ? ' active' : ''), 'data-route-key': key });
+      row.appendChild(el('span', { class: 'method method-' + route.method, text: route.method }));
+      row.appendChild(el('span', { class: 'path', text: displayPath }));
+      if (route.middleware.length) row.appendChild(el('span', { class: 'badge', text: route.middleware.length + ' mw' }));
+      row.onclick = () => { activeKey = key; renderList(); renderForm(route); };
+      routesEl.appendChild(row);
+    });
+    group.appendChild(routesEl);
+
+    list.appendChild(group);
+  });
+}
+
+// One labeled input per detected field (name, required "*" or "(optional)",
+// and its InputBag type as a small badge) — or null if `fields` is empty,
+// so the caller can fall back to a plain freeform input/textarea for an
+// endpoint RouteCompiler couldn't statically introspect. `namespace` is
+// just 'query' or 'body' — used only to keep the two kinds' cache keys
+// from colliding when a route happens to detect the same field name in
+// both bags; query and body fields are otherwise rendered/cached by this
+// exact same code, nothing kind-specific.
+function renderFieldInputs(panel, fields, legend, fieldCache, namespace, persist) {
+  if (!fields.length) return null;
+
+  panel.appendChild(el('label', { text: legend }));
+  const inputs = {};
+
+  fields.forEach(field => {
+    const wrap = el('div', { class: 'field' });
+    const labelRow = el('div', { class: 'field-label' });
+    labelRow.appendChild(el('span', { class: 'key', text: field.key }));
+    labelRow.appendChild(el('span', {
+      class: field.required ? 'field-required' : 'field-optional',
+      text: field.required ? '*' : '(optional)',
+    }));
+    labelRow.appendChild(el('span', { class: 'field-type', text: field.type }));
+    wrap.appendChild(labelRow);
+
+    const input = el('input', { type: 'text', placeholder: field.required ? 'required' : 'optional' });
+    const cacheKey = namespace + ':' + field.key;
+    input.value = fieldCache[cacheKey] || '';
+    input.oninput = () => { fieldCache[cacheKey] = input.value; persist(); };
+    wrap.appendChild(input);
+    panel.appendChild(wrap);
+
+    inputs[field.key] = { input, field };
+  });
+
+  return inputs;
+}
+
+// A field left blank is omitted entirely when it's optional (so the
+// backend's own default applies) but still sent (even empty) when
+// required — that way a required field left blank surfaces the real
+// backend validation message instead of the tester silently guessing.
+function isBlankAndOptional(field, raw) {
+  return raw === '' && !field.required;
+}
+
+function buildQueryString(inputs) {
+  const parts = [];
+  for (const key of Object.keys(inputs)) {
+    const { input, field } = inputs[key];
+    if (isBlankAndOptional(field, input.value)) continue;
+    parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(input.value));
+  }
+  return parts.join('&');
+}
+
+// JSON/Array fields need their raw text actually PARSED before being
+// embedded — the backend's getJson()/getArray() expect a real array
+// value in the parsed body, not a JSON-encoded string sitting inside it.
+// Falls back to the raw text if it doesn't parse (the backend will then
+// report the real "must be valid JSON" error instead of the tester
+// silently swallowing it).
+function coerceFieldValue(field, raw) {
+  if (field.type === 'JSON' || field.type === 'Array') {
+    try { return JSON.parse(raw); } catch (e) { return raw; }
+  }
+  return raw;
+}
+
+function buildJsonBody(inputs) {
+  const obj = {};
+  for (const key of Object.keys(inputs)) {
+    const { input, field } = inputs[key];
+    if (isBlankAndOptional(field, input.value)) continue;
+    obj[key] = coerceFieldValue(field, input.value);
+  }
+  return JSON.stringify(obj);
+}
+
+// Best-effort clipboard write — false (never throws) if the browser
+// denies/lacks the Clipboard API, so a caller can skip the "copied!"
+// feedback instead of surfacing a confusing error for a convenience action.
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// A shell-quoted curl equivalent of the exact request just sent — same
+// method/url/headers/body, single-quoted with '\'' escaping for any
+// embedded single quotes, one -H per header line for readability.
+function buildCurlCommand(method, absUrl, headers, body) {
+  const quote = (s) => "'" + String(s).replace(/'/g, "'\\''") + "'";
+  let cmd = 'curl -X ' + method + ' ' + quote(absUrl);
+  for (const [key, value] of Object.entries(headers)) {
+    cmd += " \\\n  -H " + quote(key + ': ' + value);
+  }
+  if (body) cmd += ' \\\n  -d ' + quote(body);
+  return cmd;
+}
+
+// Briefly swaps a button's label for a checkmark to confirm the click did
+// something (clipboard writes are silent otherwise), then restores it.
+function flashIcon(btn) {
+  const original = btn.textContent;
+  btn.textContent = '✓';
+  setTimeout(() => { btn.textContent = original; }, 900);
+}
+
+function renderForm(route) {
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  const panel = el('div', { class: 'panel' });
+  // The full real path here, deliberately — this is the form you're
+  // about to send a request from, so it should show exactly what will
+  // be requested, not the shortened label used in the list.
+  panel.appendChild(el('h2', { text: route.method + ' ' + route.path }));
+  panel.appendChild(el('div', {
+    class: 'mw',
+    text: route.middleware.length ? 'Middleware: ' + route.middleware.join(', ') : 'No middleware',
+  }));
+
+  // Collapsed by default — click to reveal. Verbatim, as written in
+  // Tester::comment(...) inside the controller method — set via
+  // textContent (never innerHTML), so nothing in it is interpreted as
+  // HTML; white-space: pre-wrap (in CSS) preserves its exact line
+  // breaks/spacing without needing any escaping here.
+  if (route.comment) {
+    const toggle = el('div', { class: 'comment-toggle collapsed' });
+    toggle.appendChild(el('span', { class: 'chevron', text: '▾' }));
+    toggle.appendChild(el('span', { text: 'Description' }));
+    panel.appendChild(toggle);
+
+    const comment = el('div', { class: 'comment collapsed', text: route.comment });
+    panel.appendChild(comment);
+
+    toggle.onclick = () => {
+      toggle.classList.toggle('collapsed');
+      comment.classList.toggle('collapsed');
+    };
+  }
+
+  // Every value typed into this form — path params, query/body fields,
+  // the freeform fallbacks, all alike — is cached under one entry keyed
+  // by this route, so leaving and coming back to the same endpoint
+  // restores whatever was last filled in instead of starting blank.
+  const fieldCache = loadFieldCache(route);
+  const persistFields = () => saveFieldCache(route, fieldCache);
+
+  // Custom request headers — same collapsed-by-default toggle as
+  // Description, right beside it. A JSON object of extra headers to send
+  // alongside (or, if a key collides, override) Authorization/
+  // Content-Type; left blank or malformed, it's simply not applied.
+  const headersToggle = el('div', { class: 'headers-toggle collapsed' });
+  headersToggle.appendChild(el('span', { class: 'chevron', text: '▾' }));
+  headersToggle.appendChild(el('span', { text: 'Headers' }));
+  panel.appendChild(headersToggle);
+
+  const headersBody = el('div', { class: 'headers-body collapsed' });
+
+  // What Send already attaches on its own — Authorization from the app
+  // bar's token (if any) and Content-Type for a JSON body — shown as a
+  // read-only preview so the custom-headers box below only needs to cover
+  // what ISN'T already sent automatically.
+  const defaultHeaders = {};
+  const currentToken = getGlobalToken();
+  if (currentToken) defaultHeaders['Authorization'] = 'Bearer ' + currentToken;
+  if (['POST', 'PUT', 'PATCH'].includes(route.method)) defaultHeaders['Content-Type'] = 'application/json';
+  const defaultsText = Object.keys(defaultHeaders).length
+    ? 'Sent automatically: ' + Object.entries(defaultHeaders).map(([k, v]) => k + ': ' + v).join(', ')
+    : 'Sent automatically: none (no token set, no JSON body)';
+  headersBody.appendChild(el('div', { class: 'headers-defaults', text: defaultsText }));
+
+  const headersInput = el('textarea', { placeholder: '{\n  "X-Custom-Header": "value"\n}' });
+  headersInput.value = fieldCache['headers:raw'] || '';
+  headersInput.oninput = () => { fieldCache['headers:raw'] = headersInput.value; persistFields(); };
+  headersBody.appendChild(headersInput);
+  panel.appendChild(headersBody);
+
+  headersToggle.onclick = () => {
+    headersToggle.classList.toggle('collapsed');
+    headersBody.classList.toggle('collapsed');
+  };
+
+  // Structured fields, one labeled input per InputBag getter found in the
+  // controller's source (see RouteCompiler::fieldsOf()) — falls back to
+  // the old freeform input whenever nothing was statically detected, so
+  // an endpoint that doesn't use InputBag still works exactly as before.
+  // Query and body fields are rendered/cached by the exact same call —
+  // only the `namespace` label ('query'/'body') and legend differ.
+  const fields = route.fields || [];
+  const queryFields = fields.filter(f => f.source === 'query');
+  const bodyFields = fields.filter(f => f.source === 'body');
+  // Path params ({id}) whose controller actually validates them via
+  // $request->params->getX('id') get that call's real type/required
+  // info; any {id} the controller reads without validating falls back to
+  // "always required, no type" below — a route placeholder that MUST be
+  // present in the URL, but nothing statically knowable beyond that.
+  const paramFieldsByKey = {};
+  fields.filter(f => f.source === 'params').forEach(f => { paramFieldsByKey[f.key] = f; });
+
+  const params = pathParams(route.path);
+  const paramInputs = {};
+
+  if (params.length) {
+    panel.appendChild(el('label', { text: 'Path parameters' }));
+    const row = el('div', { class: 'row' });
+    params.forEach(p => {
+      const detected = paramFieldsByKey[p];
+      const required = detected ? detected.required : true;
+
+      const wrap = el('div', {});
+      const labelRow = el('div', { class: 'field-label' });
+      labelRow.appendChild(el('span', { class: 'key', text: p }));
+      labelRow.appendChild(el('span', {
+        class: required ? 'field-required' : 'field-optional',
+        text: required ? '*' : '(optional)',
+      }));
+      if (detected) labelRow.appendChild(el('span', { class: 'field-type', text: detected.type }));
+      wrap.appendChild(labelRow);
+
+      const input = el('input', { type: 'text', placeholder: p });
+      const cacheKey = 'path:' + p;
+      input.value = fieldCache[cacheKey] || '';
+      input.oninput = () => { fieldCache[cacheKey] = input.value; persistFields(); };
+      wrap.appendChild(input);
+
+      paramInputs[p] = input;
+      row.appendChild(wrap);
+    });
+    panel.appendChild(row);
+  }
+
+  // No freeform query-string fallback any more — an endpoint that
+  // RouteCompiler couldn't statically detect any query fields for just
+  // gets no query parameters section at all, rather than an untyped
+  // catch-all input.
+  const queryInputs = renderFieldInputs(panel, queryFields, 'Query parameters', fieldCache, 'query', persistFields);
+
+  let body = null;
+  let bodyInputs = null;
+  if (['POST', 'PUT', 'PATCH'].includes(route.method)) {
+    bodyInputs = renderFieldInputs(panel, bodyFields, 'Body fields', fieldCache, 'body', persistFields);
+    if (!bodyInputs) {
+      panel.appendChild(el('label', { text: 'Body (JSON)' }));
+      body = el('textarea', { placeholder: '{\n  "mail": "test@apipro.com",\n  "password": "secret"\n}' });
+      body.value = fieldCache['body:raw'] || '';
+      body.oninput = () => { fieldCache['body:raw'] = body.value; persistFields(); };
+      panel.appendChild(body);
+    }
+  }
+
+  const sendBtn = el('button', { text: 'Send' });
+  panel.appendChild(sendBtn);
+
+  const resp = el('div', { class: 'resp' });
+  panel.appendChild(resp);
+
+  sendBtn.onclick = async () => {
+    let path = route.path;
+    for (const p of params) {
+      path = path.replace('{' + p + '}', encodeURIComponent(paramInputs[p].value));
+    }
+    const qs = queryInputs ? buildQueryString(queryInputs) : '';
+    const url = path + (qs ? '?' + qs : '');
+
+    const headers = {};
+    const token = getGlobalToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    const init = { method: route.method, headers };
+    if (body || bodyInputs) {
+      headers['Content-Type'] = 'application/json';
+      init.body = bodyInputs ? buildJsonBody(bodyInputs) : (body.value.trim() || '{}');
+    }
+
+    // Custom headers merge in last, so they can add to OR deliberately
+    // override Authorization/Content-Type — malformed/blank JSON is
+    // silently skipped rather than blocking the send.
+    if (headersInput.value.trim()) {
+      try {
+        const custom = JSON.parse(headersInput.value);
+        if (custom && typeof custom === 'object') Object.assign(headers, custom);
+      } catch (e) { /* ignored — not valid JSON, nothing to merge */ }
+    }
+
+    resp.innerHTML = '<p class="empty">Sending…</p>';
+
+    try {
+      const start = performance.now();
+      const res = await fetch(url, init);
+      const ms = Math.round(performance.now() - start);
+      const text = await res.text();
+      let pretty = text;
+      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (e) {}
+
+      resp.innerHTML = '';
+
+      const statusRow = el('div', { class: 'status-row' });
+      statusRow.appendChild(el('span', {
+        class: 'status ' + (res.ok ? 'status-ok' : 'status-err'),
+        text: res.status + ' ' + res.statusText + '  ·  ' + ms + 'ms',
+      }));
+
+      const icons = el('div', { class: 'resp-icons' });
+      const copyBtn = el('button', { class: 'icon-btn', title: 'Copy response body', text: 'copy' });
+      const curlBtn = el('button', { class: 'icon-btn', title: 'Copy as curl', text: 'curl' });
+      const wrapBtn = el('button', { class: 'icon-btn', title: 'Toggle line wrap', text: 'wrap' });
+      icons.appendChild(copyBtn);
+      icons.appendChild(curlBtn);
+      icons.appendChild(wrapBtn);
+      statusRow.appendChild(icons);
+
+      resp.appendChild(statusRow);
+      const pre = el('pre', { text: pretty });
+      // Wrap is a single app-wide flag — every response starts in
+      // whatever state it was last left in, on any route.
+      if (isWrapEnabled()) {
+        pre.classList.add('wrap');
+        wrapBtn.classList.add('active');
+      }
+      resp.appendChild(pre);
+
+      copyBtn.onclick = async () => { if (await copyToClipboard(pretty)) flashIcon(copyBtn); };
+      curlBtn.onclick = async () => {
+        const curl = buildCurlCommand(route.method, location.origin + url, headers, init.body || null);
+        if (await copyToClipboard(curl)) flashIcon(curlBtn);
+      };
+      wrapBtn.onclick = () => {
+        const enabled = !isWrapEnabled();
+        setWrapEnabled(enabled);
+        pre.classList.toggle('wrap', enabled);
+        wrapBtn.classList.toggle('active', enabled);
+      };
+    } catch (e) {
+      resp.innerHTML = '';
+      resp.appendChild(el('div', { class: 'status status-err', text: 'Request failed: ' + e.message }));
+    }
+  };
+
+  main.appendChild(panel);
+}
+
+initGlobalToken();
+
+loadRoutes().catch(e => {
+  document.getElementById('list').innerHTML = '<p class="empty" style="padding:12px;">Failed to load routes: ' + e.message + '</p>';
+});
+</script>
+
+</body>
+</html>

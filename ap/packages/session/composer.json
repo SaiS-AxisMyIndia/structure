@@ -1,0 +1,20 @@
+{
+    "name": "paradigm/session",
+    "description": "Session: stateless, JWT-style session tokens (signed, optionally encrypted) + a SessionMiddleware, plugging into api-pro's middleware pipeline.",
+    "type": "library",
+    "version": "1.0.0",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "ext-openssl": "*",
+        "paradigm/api-pro": "*"
+    },
+    "repositories": [
+        { "type": "path", "url": "../api-pro" }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Session\\": ""
+        }
+    }
+}

@@ -1,0 +1,19 @@
+{
+    "name": "paradigm/tester",
+    "description": "Tester: a Swagger-like interactive API explorer for this app's compiled routes, served at /tester.",
+    "type": "library",
+    "version": "1.0.0",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "paradigm/api-pro": "*"
+    },
+    "repositories": [
+        { "type": "path", "url": "../api-pro" }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Tester\\": ""
+        }
+    }
+}
