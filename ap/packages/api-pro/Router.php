@@ -60,10 +60,22 @@ class Router
     {
         foreach ($this->routes[$request->method] ?? [] as $route) {
             if (preg_match($route['regex'], $request->path, $matches) === 1) {
-                $request->params = new InputBag(array_filter(
-                    $matches,
-                    static fn (int|string $key): bool => is_string($key),
-                    ARRAY_FILTER_USE_KEY,
+                // $request->path is the raw, still percent-encoded URL path
+                // (parse_url() doesn't decode it — unlike $_GET, which PHP
+                // already decodes for us). A path param value containing a
+                // reserved character (a literal "/", a space, unicode...)
+                // only survives as ONE opaque segment — matching the
+                // route's [^/]* placeholder at all — because Tester (or
+                // any client) percent-encodes it first. rawurldecode()
+                // here is what hands the *original* value back to
+                // InputBag/the controller instead of the encoded one.
+                $request->params = new InputBag(array_map(
+                    rawurldecode(...),
+                    array_filter(
+                        $matches,
+                        static fn (int|string $key): bool => is_string($key),
+                        ARRAY_FILTER_USE_KEY,
+                    ),
                 ));
 
                 $action = fn (Request $request): mixed => $this->container
@@ -74,7 +86,11 @@ class Router
             }
         }
 
-        throw new PacketFailed('Not Found', 404, ['path' => $request->path]);
+        // The unmatched path used to ride along as $data ({"path": "..."})
+        // — PacketFailed no longer carries data at all (that's exclusively
+        // PacketSuccess's field, see Packet's docblock), so it's folded
+        // into the message text instead.
+        throw new PacketFailed("Not Found: {$request->path}", 0, 404);
     }
 
     /**

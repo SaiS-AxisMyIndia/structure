@@ -24,6 +24,17 @@ class Kernel
     private function __construct(private readonly array $config)
     {
         $this->container = new Container();
+        // Self-registered so any class the container builds can ask for
+        // Container $container in its own constructor and get back THIS
+        // one — the real, already-module-configured instance — instead
+        // of Container::make() naively autowiring a brand-new, empty one
+        // (Container has no constructor args, so that would otherwise
+        // "succeed" silently with something useless). Needed by anything
+        // that has to build another class dynamically at runtime, by
+        // name, outside the normal Router::dispatch() flow — e.g.
+        // AppViewer re-invoking a specific Page-returning controller
+        // action on demand.
+        $this->container->singleton(Container::class, fn (): Container => $this->container);
         $this->router = new Router($this->container, Runner::routes());
     }
 
@@ -55,13 +66,34 @@ class Kernel
 
         // A thrown PacketFailed (from a controller, a middleware, InputBag's
         // own validation, Router's "not found" fallback — anywhere) is
-        // caught here, once, and converted with its real status — the
-        // "auto convert" half of PacketFailed/PacketSuccess: nothing in
-        // between ever needs to call Response::json() itself.
+        // caught here, once, and converted — the "auto convert" half of
+        // PacketFailed/PacketSuccess: nothing in between ever needs to
+        // call Response::json() itself. Its httpStatus() (200 unless the
+        // caller set otherwise) becomes the real response status;
+        // errorCode() is a body-level detail toPacket() already carries
+        // (see Packet), not a transport-layer one.
         try {
             $result = $this->router->dispatch($request);
         } catch (PacketFailed $failure) {
-            Response::json($failure->toPacket(), $failure->status());
+            Response::json($failure->toPacket(), $failure->httpStatus());
+        } catch (\Throwable $e) {
+            // Anything else escaping all the way up here is a genuine
+            // bug or infrastructure failure (a database that's
+            // unreachable, for instance) — never let it fall through to
+            // PHP's own raw HTML stack-trace dump. That's both an
+            // information leak (real file paths/line numbers handed to
+            // whoever's calling the API) and simply not JSON, breaking
+            // every client that expects one. The message itself is only
+            // included outside `env: local` when it's already safe to
+            // show — see PacketFailed for the same idea applied
+            // deliberately instead of by omission.
+            //
+            // Logged either way (see Log::crash()) — a request-time
+            // crash matters just as much as CrashPage's boot-time one,
+            // and both write to the same prologs.log.
+            Log::crash($e);
+            $message = $this->env() === 'local' ? $e->getMessage() : 'Internal server error';
+            Response::json((new Packet())->failed($message), 500);
         }
 
         // dispatch() only returns when a route handler didn't already send
@@ -69,12 +101,26 @@ class Kernel
         // controller). A returned Page is rendered and sent as HTML; a
         // Packet (including a PacketSuccess) is passed through as-is;
         // anything else is wrapped in one — Response::json() only ever
-        // accepts a Packet.
+        // accepts a Packet. Either way, the Packet's own httpStatus()
+        // (200 by default) decides the real response status.
         if ($result instanceof Page) {
             Response::html($result->render());
         }
 
-        Response::json($result instanceof Packet ? $result : (new Packet())->success($result));
+        // A PacketFailed doesn't have to be thrown — a controller can
+        // `return` one too (e.g. when its own return type already covers
+        // PacketFailed alongside Packet/array). toPacket() already
+        // carries its errorCode/httpStatus over faithfully, so once it's
+        // a Packet, the rest is identical to the plain-Packet/array cases
+        // below — one httpStatus() read decides the real response status
+        // either way.
+        $packet = match (true) {
+            $result instanceof PacketFailed => $result->toPacket(),
+            $result instanceof Packet => $result,
+            default => (new Packet())->success($result),
+        };
+
+        Response::json($packet, $packet->httpStatus());
     }
 
     public function name(): string

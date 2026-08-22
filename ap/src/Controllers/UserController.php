@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Services\UserService;
+use App\Repo\UserRepo;
+use ApiPro\Attributes\DeleteMapping;
 use ApiPro\Attributes\GetMapping;
 use ApiPro\Attributes\Middleware;
 use ApiPro\Attributes\PostMapping;
+use ApiPro\Attributes\PutMapping;
 use ApiPro\Attributes\RestController;
 use ApiPro\Packet;
 use ApiPro\PacketFailed;
@@ -17,41 +19,47 @@ use Session\SessionMiddleware;
 use Tester\Tester;
 
 // mandatory: false — a token isn't required to call any action here, but
-// if the client sends one (e.g. from /api/health/ping) it resolves and a
-// re-encoded one comes back attached, same as everywhere else. With no
-// incoming token, Session::current() stays null and no `token` field
-// appears at all — see HealthController::ping() for the pattern that
-// issues a brand-new one unconditionally, if that's what's wanted here too.
+// if the client sends one (e.g. from /ap/v1/health/ping) it resolves and
+// authenticates the request normally. Nothing is echoed back either way,
+// though: only create()/createRefresh() (login, refresh) put anything in
+// the response — see Session::response(). See HealthController::ping()
+// for the pattern that issues a brand-new token unconditionally, if
+// that's what's wanted here too.
+//
+// Every action here talks to the real `users` table through UserRepo —
+// not UserService's in-memory demo array (that's still what
+// AuthController's login() checks credentials against; the two aren't
+// wired together, so a user created here won't be able to log in until
+// that's done too, if it ever is).
 #[RestController(prefix: '/users')]
 #[Middleware(new SessionMiddleware())]
 class UserController
 {
-    // Constructor injection — the Container resolves UserService automatically,
-    // the same way Spring wires a @Service into a @RestController.
-    public function __construct(private readonly UserService $userService)
+    // Constructor injection — the Container resolves UserRepo the same
+    // way it resolves any service, autowiring the Connection UserRepo's
+    // base ProRepo needs in turn.
+    public function __construct(private readonly UserRepo $userRepo)
     {
     }
 
     #[GetMapping]
     public function index(Request $request): array
     {
-        return $this->userService->all();
+        Tester::comment('List every user — real rows from the `users` table.');
+
+        return $this->userRepo->all();
     }
 
     #[GetMapping('/{id}')]
-    public function show(Request $request): array
+    public function show(Request $request): array|Packet|PacketFailed
     {
         Tester::comment("Fetch one user by numeric id.\nReturns 404 (via PacketFailed) if no user with that id exists.");
 
-        // getInt(..., 0) -> optional: a missing/blank {id} (e.g. "/users/")
-        // falls back to 0 rather than 400ing — find(0) then just 404s like
-        // any other unknown id. A NON-blank, non-integer {id} (e.g. "abc")
-        // still 400s via PacketFailed before find() is even called.
-        $id = $request->params->getInt('id', 0);
-        $user = $this->userService->find($id);
+        $id = $request->params->getInt('id');
+        $user = $this->userRepo->find($id);
 
         if ($user === null) {
-            throw new PacketFailed('User not found', 404);
+            return new PacketFailed('User not found', 3);
         }
 
         return $user;
@@ -65,17 +73,63 @@ class UserController
     #[PostMapping]
     public function store(Request $request): Packet
     {
-        Tester::comment("Validate a new user's mail + password.\n\nRequired: mail (valid email), password (non-empty).\nOptional: roles (JSON array), and a query string ?lang= for the language field.\n\nDoesn't actually persist anything yet — UserService has no create().");
+        Tester::comment("Create a real user row.\n\nRequired: name, mail (valid email), password (non-empty).");
 
+        // Plaintext, matching UserService::authenticate()'s own
+        // demo-only comparison elsewhere in this app — hash this
+        // (password_hash()) before this table ever holds a real user's
+        // password; see UserEntity's own docblock on the same point.
+        $name = $request->body->getString('name');
         $mail = $request->body->getMail('mail');
         $password = $request->body->getPassword('password');
-        $roles = $request->body->getJson('roles', []);
-        $language = $request->query->getString('lang', 'en');
 
-        return new PacketSuccess([
-            'mail' => $mail,
-            'roles' => $roles,
-            'language' => $language,
-        ], 'Validated');
+        $id = $this->userRepo->create(['name' => $name, 'mail' => $mail, 'password' => $password]);
+
+        return new PacketSuccess('User created', data: $this->userRepo->find((int) $id));
+    }
+
+    #[PutMapping('/{id}')]
+    public function update(Request $request): array|Packet|PacketFailed
+    {
+        Tester::comment(
+            "Update a user by id.\n\nAny of name/mail/password may be sent — only the ones actually present in "
+                . "the body are changed, the rest are left as they were.\nReturns 404 if no user with that id exists.",
+        );
+
+        $id = $request->params->getInt('id');
+
+        if ($this->userRepo->find($id) === null) {
+            return new PacketFailed('User not found', 3);
+        }
+
+        $attributes = [];
+
+        foreach (['name', 'mail', 'password'] as $field) {
+            if ($request->body->has($field)) {
+                $attributes[$field] = $request->body->getString($field);
+            }
+        }
+
+        if ($attributes !== []) {
+            $this->userRepo->updateById($id, $attributes);
+        }
+
+        return $this->userRepo->find($id);
+    }
+
+    #[DeleteMapping('/{id}')]
+    public function destroy(Request $request): Packet|PacketFailed
+    {
+        Tester::comment("Delete a user by id.\nReturns 404 if no user with that id exists.");
+
+        $id = $request->params->getInt('id');
+
+        if ($this->userRepo->find($id) === null) {
+            return new PacketFailed('User not found', 3);
+        }
+
+        $this->userRepo->deleteById($id);
+
+        return new PacketSuccess('User deleted');
     }
 }

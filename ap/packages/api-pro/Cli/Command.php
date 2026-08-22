@@ -8,7 +8,7 @@ namespace ApiPro\Cli;
 interface Command
 {
     /**
-     * @param list<string> $args arguments after the command name (e.g. ['pro-sql', '1.0.0'] for `apc module pro-sql 1.0.0`)
+     * @param list<string> $args arguments after the command name (e.g. ['pro-sql', '1.0.0'] for `apc install pro-sql 1.0.0`)
      * @return int process exit code — 0 on success, non-zero on failure
      */
     public function run(array $args): int;

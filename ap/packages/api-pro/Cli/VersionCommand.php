@@ -22,6 +22,20 @@ final class VersionCommand implements Command
             Runner::get('env', 'local'),
         );
 
+        // Same default address `apc start` binds to when none is given —
+        // there's no live server to ask at version-check time, so this is
+        // "where /tester and /app-viewer would be", not "where they
+        // currently are". Each enabled one prints on its own line.
+        $address = StartCommand::defaultAddress();
+
+        if (Runner::get('tester')['enabled'] ?? false) {
+            echo "  http://$address/tester\n";
+        }
+
+        if (Runner::get('app_viewer')['enabled'] ?? false) {
+            echo "  http://$address/app-viewer\n";
+        }
+
         echo "\nPackages:\n";
 
         foreach ($this->packageComposerFiles() as $path) {

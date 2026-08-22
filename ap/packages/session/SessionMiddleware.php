@@ -59,10 +59,24 @@ class SessionMiddleware implements MiddlewareInterface
         $resolved = $token !== null ? $session->resolve($token) : null;
 
         if ($this->mandatory && $resolved === null) {
-            throw new PacketFailed('Token expired', 401);
+            throw new PacketFailed('Token expired', 0, 401);
         }
 
         $result = $next($request);
+
+        // A PacketFailed can be thrown OR returned from the controller.
+        // Thrown, it skips this entirely via normal PHP exception
+        // propagation — Kernel::handle()'s catch block is the only thing
+        // that ever sees it, no token re-attached. A RETURNED one has to
+        // be caught here explicitly for the same thing to happen: it's
+        // not a Packet, so left unhandled it would fall into the
+        // "wrap as success data" branch below instead — passing it
+        // straight through (unconverted; Kernel does that) keeps both
+        // paths behaving identically.
+        if ($result instanceof PacketFailed) {
+            return $result;
+        }
+
         $packet = $result instanceof Packet ? $result : (new Packet())->success($result);
 
         return $session->response($packet);

@@ -8,13 +8,22 @@ use ApiPro\Runner;
 use Throwable;
 
 /**
- * `apc install [version]` — validates that every module app.php
- * references actually resolves (same check PackageResolver runs on a
- * real boot, surfaced here so a broken reference is caught by a deploy
- * script instead of the first request to hit it). With a version
- * argument, also checks it against app.php's own declared version.
+ * `apc install [module] [version]` — with no module given (or `api-pro`
+ * itself, the app's own name — see app.php's `'name'`), validates that
+ * every module app.php references actually resolves (same check
+ * PackageResolver runs on a real boot, surfaced here so a broken
+ * reference is caught by a deploy script instead of the first request to
+ * hit it), and with a version argument, checks it against app.php's own
+ * declared version.
  *
- * This never edits app.php — it only reports what's there.
+ * Given any OTHER module name, shows that packages/<name>'s own
+ * composer.json version and whether/at-what-version app.php's `modules`
+ * list references it instead — a version argument there validates the
+ * installed composer.json version matches exactly (the same check
+ * PackageResolver runs at boot). This is the merged former
+ * `apc module <name> [version]`.
+ *
+ * Read-only either way — this never edits app.php.
  */
 final class InstallCommand implements Command
 {
@@ -24,7 +33,16 @@ final class InstallCommand implements Command
 
     public function run(array $args): int
     {
-        $expected = $args[0] ?? null;
+        $module = $args[0] ?? 'api-pro';
+        $expected = $args[1] ?? null;
+
+        return $module === 'api-pro'
+            ? $this->installApp($expected)
+            : $this->installModule($module, $expected);
+    }
+
+    private function installApp(?string $expected): int
+    {
         $appVersion = Runner::get('version', 'unknown');
         $ok = true;
 
@@ -62,5 +80,46 @@ final class InstallCommand implements Command
         echo "\nInstall OK.\n";
 
         return 0;
+    }
+
+    private function installModule(string $name, ?string $expected): int
+    {
+        $composerPath = "{$this->basePath}/packages/$name/composer.json";
+
+        if (!is_file($composerPath)) {
+            fwrite(STDERR, "Module [$name] not found — no packages/$name/composer.json.\n");
+
+            return 1;
+        }
+
+        $composer = json_decode((string) file_get_contents($composerPath), true);
+        $installedVersion = is_array($composer) ? ($composer['version'] ?? 'unknown') : 'unknown';
+        $declaredVersion = $this->declaredVersionInAppPhp($name);
+
+        printf("%-12s %s\n", 'Package:', is_array($composer) ? ($composer['name'] ?? "paradigm/$name") : "paradigm/$name");
+        printf("%-12s %s\n", 'Version:', $installedVersion);
+        printf("%-12s %s\n", 'In app.php:', $declaredVersion ?? '(not referenced)');
+
+        if ($expected === null) {
+            return 0;
+        }
+
+        if ($expected !== $installedVersion) {
+            fwrite(STDERR, "\n✗ expected $expected, packages/$name declares $installedVersion\n");
+
+            return 1;
+        }
+
+        printf("\n✓ packages/%s matches %s\n", $name, $expected);
+
+        return 0;
+    }
+
+    private function declaredVersionInAppPhp(string $name): ?string
+    {
+        $modules = Runner::get('modules', []);
+        $version = $modules["@$name"] ?? null;
+
+        return is_string($version) ? $version : null;
     }
 }

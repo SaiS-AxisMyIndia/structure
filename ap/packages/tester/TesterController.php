@@ -6,6 +6,7 @@ namespace Tester;
 
 use ApiPro\Attributes\GetMapping;
 use ApiPro\Attributes\RestController;
+use ApiPro\Page;
 use ApiPro\Request;
 use ApiPro\Response;
 use ApiPro\Runner;
@@ -27,17 +28,29 @@ class TesterController
 
     /**
      * The compiled route table, reduced to what the UI needs — no regex,
-     * no controller/action internals. Excludes /tester's own two routes
-     * (this method and index() above) — those are the tool's own
-     * plumbing, not part of the app's API, so they'd just be noise in
-     * the list of endpoints to try out.
+     * no controller/action internals. Excludes:
+     *
+     *   - /tester's own two routes (this method and index() above) —
+     *     the tool's own plumbing, not part of the app's API;
+     *   - every AppViewer route — a sibling dev tool's own plumbing,
+     *     same reasoning, just a different tool (checked by namespace
+     *     prefix rather than importing AppViewer\AppViewerController
+     *     directly, so this package doesn't need to depend on that one
+     *     just to know to skip it);
+     *   - every page-rendering route (see isPageRoute()) — sending one
+     *     of those through here would just dump raw HTML into a UI
+     *     built for viewing JSON, which isn't useful. AppViewer is
+     *     where those belong instead — it lists exactly the routes
+     *     this excludes for that reason.
      */
     #[GetMapping('/routes')]
     public function routes(Request $request): array
     {
         $appRoutes = array_values(array_filter(
             Runner::routes(),
-            static fn (array $route): bool => $route['controller'] !== self::class,
+            static fn (array $route): bool => $route['controller'] !== self::class
+                && !str_starts_with($route['controller'], 'AppViewer\\')
+                && !self::isPageRoute($route['controller'], $route['action']),
         ));
 
         return array_map(
@@ -68,5 +81,22 @@ class TesterController
             },
             $appRoutes,
         );
+    }
+
+    /**
+     * Two independent signals, either one is enough: this app's own
+     * convention of keeping every page controller under Lib\Controllers
+     * (see e.g. Lib\Controllers\HomeController), or the method's own
+     * declared return type (Page::isReturnedBy() — generic, framework-
+     * level, no app-specific knowledge). The namespace check catches a
+     * page controller even if some future one doesn't declare `: Page`
+     * explicitly. AppViewer\AppViewerController uses this exact same
+     * pair of checks (inverted — to include, not exclude) to build its
+     * own list of exactly the routes this excludes.
+     */
+    private static function isPageRoute(string $controllerClass, string $action): bool
+    {
+        return str_starts_with($controllerClass, 'Lib\\Controllers\\')
+            || Page::isReturnedBy($controllerClass, $action);
     }
 }

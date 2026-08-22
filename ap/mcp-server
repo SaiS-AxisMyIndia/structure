@@ -1,0 +1,22 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// mcp-server — a Model Context Protocol server exposing this project's
+// own `apc` CLI (and its compiled route table) as tools an MCP client
+// (Claude Desktop, Claude Code, ...) can call while developing this
+// app. Deliberately NOT part of api-pro's own runtime/packages — see
+// tools/mcp/README.md for how to wire this into an MCP client, and
+// exactly what each tool does.
+//
+// Talks JSON-RPC 2.0 over stdio, one message per line — nothing on
+// STDOUT except protocol messages; anything else (a stray warning,
+// fatal error output) would corrupt the stream from the client's point
+// of view. See ApiPro's own CrashPage/Log for how the actual web app
+// handles this same category of problem — this script isn't part of
+// that, since it never serves a real HTTP request.
+
+require_once __DIR__ . '/tools/mcp/McpServer.php';
+
+(new McpServer(__DIR__))->run();

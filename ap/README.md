@@ -4,74 +4,116 @@ A PHP project built on a small, hand-rolled Spring-Boot-style micro-framework:
 attribute-based routing (`#[RestController]`, `#[GetMapping]`, ...), a
 constructor-autowiring DI container, a `#[Middleware]`-declared interceptor
 pipeline, and a `Kernel` that plays the role of `SpringApplication` — plus a
-MySQL layer (`ProSql`), a stateless, JWT-style session layer (`Session`), and
-a Swagger-like interactive API explorer (`Tester`) served at `/tester`.
+MySQL layer (`ProSql`) with an attribute-driven entity system that scans your
+own classes and keeps real tables in sync (`apc build`), a stateless,
+JWT-style session layer (`Session`), and two Swagger-like dev-only explorers:
+`Tester` for JSON/API routes (`/tester`) and `AppViewer` for HTML/`Page`
+routes (`/app-viewer`).
 
-`packages/api-pro`, `packages/pro-sql`, `packages/session` and
-`packages/tester` are **framework packages** (treat them like
+`packages/api-pro`, `packages/pro-sql`, `packages/session`, `packages/tester`
+and `packages/app-viewer` are **framework packages** (treat them like
 dependencies/libraries — namespaces `ApiPro\`, `ProSql\`, `Session\`,
-`Tester\`). Your **application** lives at the project root in `src/`
-(namespace `App\`) and depends on them, the way a Spring Boot app depends
-on `spring-boot-starter-web` / `-jdbc` / `-security` without embedding any
-of them in its own source.
+`Tester\`, `AppViewer\`). Your **application** lives at the project root in
+`src/` (namespace `App\`) and depends on them, the way a Spring Boot app
+depends on `spring-boot-starter-web` / `-jdbc` / `-security` without
+embedding any of them in its own source.
+
+## Contents
+
+- [Structure](#structure)
+- [Quick start](#quick-start)
+- [runner/ and ApiPro\Runner](#runner-and-apiprorunner)
+- [app.php and module references](#appphp-and-module-references)
+- [Middleware — declared on the controller](#middleware--declared-on-the-controller)
+- [Module route prefix](#module-route-prefix)
+- [Using ProSql for MySQL](#using-prosql-for-mysql)
+- [Entities & schema sync — `apc build`'s auto-migration](#entities--schema-sync--apc-builds-auto-migration)
+- [Using Session — a stateless, JWT-style token](#using-session--a-stateless-jwt-style-token)
+- [Using Packet — a uniform response shape](#using-packet--a-uniform-response-shape)
+- [Using Page — a complete HTML page](#using-page--a-complete-html-page)
+- [Validating input with InputBag](#validating-input-with-inputbag)
+- [Using Tester — a Swagger-like API explorer](#using-tester--a-swagger-like-api-explorer)
+- [Using AppViewer — the same idea, for pages](#using-appviewer--the-same-idea-for-pages)
+- [Adding a new endpoint](#adding-a-new-endpoint)
+- [Adding a new module or middleware](#adding-a-new-module-or-middleware)
+- [apc — the CLI](#apc--the-cli)
+- [Microservices: `--<stage>` + `--<service>`](#microservices---stage----service)
+- [Crashes never reach the browser raw](#crashes-never-reach-the-browser-raw)
+- [MCP dev-tool server](#mcp-dev-tool-server)
+- [Walkthrough](#walkthrough)
 
 ## Structure
 
 ```
 .
-├── composer.json           # root manifest — requires all 4 packages (path repos), autoloads App\ -> src/
-├── apc                        # the CLI (php apc ...) — apc -v, apc start, apc build [-c], apc install, apc module <name>
+├── composer.json           # root manifest — requires all 5 packages (path repos), autoloads App\ -> src/, Lib\Controllers\ -> lib/controllers/
+├── apc                        # the CLI (php apc ...) — apc -v, apc start/stop, apc build [-c], apc clean, apc install [module]
+├── mcp-server                  # an MCP dev-tool server wrapping apc for an AI assistant — see tools/mcp/README.md, NOT part of the app
+├── tools/mcp/                   # McpServer.php (protocol), ApiProTools.php (the tools), list-routes.php — none of it PSR-4/autoloaded
 ├── app.php                    # the application manifest (like application.properties) — name/version/env + modules to boot
+├── index.php                 # front controller: requires runner/runner.php, boots the Kernel, handles the request
+├── .htaccess                  # rewrites every request to index.php; forbids direct access to runner/ and lib/
+├── .env.local                  # APP_ENV=local, SERVICE/PORT/DEFAULT_SERVICE, DB_*, SESSION_* — the flat/default app, stage "local"
+├── .env.production              # same shape, stage "production" — loaded by `apc ... --production`
+├── .env.staging                  # same shape, stage "staging" — loaded by `apc ... --staging`
+│                                 # these three are the ONLY flat stages (Runner::STAGES) — a NAMED service instead uses
+│                                 # .env.<service>.dev / .prod / .stag, see "Microservices" below
+├── prologs.log                # gitignored — every crash, boot-time or request-time; see ApiPro\Log — unbounded, LOGS=false to disable
 ├── lib/                         # never web-reachable (see .htaccess)
 │   ├── page.html                  # the base <!doctype html> layout Page::render() fills in (builder mode)
-│   └── page/
-│       └── HomePage.php             # a complete page written in PHP (view mode) — see Page::view()
-├── runner/                     # never web-reachable (see .htaccess) — boot-time config, one file per concern
-│   ├── runner.php                 # boots ApiPro\Runner — loads .env + app.php + every sibling file here, once
-│   ├── prosql.php                  # DB_* config, consumed by ProSqlModule via Runner::get('prosql')
+│   ├── controllers/                # this app's own HTML/Page-returning controllers ("Lib\Controllers\") — /site, /site/about, /site/docs, /site/releases, /site/contact
+│   │   ├── HomeController.php / AboutController.php / DocsController.php / ReleasesController.php / ContactController.php
+│   └── page/                       # one PHP view file per controller above (view mode) — see Page::view()
+│       └── HomePage.php / AboutPage.php / DocsPage.php / ReleasesPage.php / ContactPage.php
+├── runner/                     # never web-reachable — boot-time config, one file per concern, regenerated by `apc build`
+│   ├── runner.php                 # boots ApiPro\Runner — loads .env.<stage>[.<service>] + app.php + every sibling file here, once
+│   ├── prosql.php                  # DB_*/TABLE_WRITE config, consumed by ProSqlModule via Runner::get('prosql')
 │   ├── session.php                 # SESSION_* config, consumed by SessionModule via Runner::get('session')
-│   ├── controllers.php             # this app's own controller list, consumed by Application via Runner::get('controllers')
-│   └── tester.php                  # { enabled }, consumed by TesterModule via Runner::get('tester') — TESTER_ENABLED in .env
-├── index.php                 # front controller: requires runner/runner.php, boots the Kernel, handles the request
-├── .htaccess                  # rewrites every request to index.php; forbids direct access to runner/
-├── .env.dev                    # copy to .env — APP_ENV, DB_*, SESSION_*
+│   ├── tester.php                  # { enabled }, consumed by TesterModule — TESTER_ENABLED in .env.<stage>
+│   ├── app_viewer.php              # { enabled }, consumed by AppViewerModule — APP_VIEWER_ENABLED in .env.<stage>
+│   ├── controllers.php             # this app's own controller list — auto-discovered by ApiPro\ClassDiscovery (every #[RestController] under src/Controllers/ + lib/controllers/)
+│   └── entities.php                # this app's own #[ProEntity] list — auto-discovered under src/Entities/, consumed by ProSqlModule::build()
 ├── storage/
 │   ├── logs/                   # runtime output
+│   ├── pids/                    # gitignored — <service>.<stage>.pid / <stage>.pid, written by `apc start`, read by `apc stop`
+│   ├── migrations/              # one timestamped .sql file per `apc build` run that touched the schema — see "Entities & schema sync"
 │   └── routes.cache.php        # written by Runner::routes() outside env: local — gitignored, delete to force a rebuild
 ├── src/                       # YOUR application ("App\")
-│   ├── Application.php           # @SpringBootApplication equivalent — registers services + controllers
-│   ├── Controllers/
-│   │   ├── HealthController.php      # GET /api/health (mandatory), GET /api/health/ping (not, issues a token), POST /api/health/logout
-│   │   ├── UserController.php        # GET /api/users, GET /api/users/{id}
-│   │   └── HomeController.php        # GET /api-pro (a Page::view() sample), POST /api-pro/posts
-│   └── Services/
-│       ├── UserService.php
-│       └── PostService.php           # in-memory demo data behind HomeController — same limitation as UserService
+│   ├── Application.php           # @SpringBootApplication equivalent — registers services, declares #[BaseRoot('/ap/v1')], contributes runnerTemplate()
+│   ├── Controllers/                # JSON/API controllers — AuthController, HealthController, HomeController, UserController
+│   ├── Entities/                   # #[ProEntity]-mapped classes — UserEntity.php
+│   ├── Repo/                       # ProSql\ProRepo subclasses — UserRepo.php
+│   └── Services/                   # UserService.php (real DB via UserRepo), PostService.php (in-memory demo)
 └── packages/
     ├── api-pro/               # the WEB framework package ("ApiPro\") — a dependency, not app code
     │   ├── composer.json
     │   ├── Kernel.php             # SpringApplication.run() equivalent
     │   ├── Container.php          # DI container (constructor autowiring + makeWith() overrides)
     │   ├── Router.php             # DispatcherServlet + interceptor-chain equivalent
-    │   ├── Module.php             # contract every app "module" implements (register/controllers/prefix)
+    │   ├── Module.php             # contract every app "module" implements (register/controllers/prefix/build/runnerTemplate)
     │   ├── MiddlewareInterface.php # contract every middleware implements
     │   ├── PackageResolver.php    # resolves an app.php '@name' => 'version' entry to a packages/ Module
-    │   ├── Runner.php             # loads .env + app.php once; resolves modules once; compiles + caches routes once
+    │   ├── ClassDiscovery.php     # PSR-4-aware attribute scanner — the mechanism behind auto-discovered controllers.php/entities.php
+    │   ├── Runner.php             # loads .env.<stage>[.<service>] + app.php once; resolves modules once; compiles + caches routes once
     │   ├── RouteCompiler.php      # attributes -> a plain, cacheable route table, plus Tester::comment()/InputBag calls read from source text
-    │   ├── Cli/                   # the apc CLI's command classes (Application, VersionCommand, BuildCommand, InstallCommand, ModuleCommand)
-    │   ├── Packet.php             # uniform {success, message, data} response envelope
-    │   ├── Page.php               # a complete HTML page — builder mode (lib/page.html) or view mode (lib/page/*.php) — Packet's counterpart for web pages
+    │   ├── Packet.php / PacketSuccess.php / PacketFailed.php   # uniform {success, message, data} response envelope
+    │   ├── Page.php               # a complete HTML page — builder mode (lib/page.html) or view mode (lib/page/*.php)
     │   ├── InputBag.php           # validated getString/getInt/getJson/getMail/... — backs query/body/params
     │   ├── Request.php / Response.php
-    │   └── Attributes/            # @RestController / @GetMapping / .../ @Middleware / @Service
+    │   ├── CrashPage.php          # boot-time failure -> a plain "Server Down" page, never a raw PHP error
+    │   ├── Log.php                # every crash, boot- or request-time, appended to <project root>/prologs.log
+    │   ├── Attributes/            # @RestController / @GetMapping / .../ @Middleware / @Service / @BaseRoot
+    │   └── Cli/                   # the apc CLI's command classes — see "apc — the CLI" below for what each does
     │
     ├── pro-sql/                # the MYSQL package ("ProSql\") — a dependency, not app code
     │   ├── composer.json
     │   ├── Connection.php          # lazy PDO wrapper: statement()/select()/lastInsertId()/transaction()
     │   ├── QueryBuilder.php        # fluent, parameter-bound builder: where/orWhere/whereIn/join/orderBy/limit/get/first/count/insert/update/delete
-    │   ├── Repository.php          # base CRUD repo (JpaRepository equivalent): all/find/create/updateById/deleteById
-    │   ├── ProSqlModule.php        # wires a shared Connection into the container, config read via Runner::get('prosql')
-    │   └── Exceptions/QueryException.php
+    │   ├── ProRepo.php             # base CRUD repo (JpaRepository equivalent): all/find/create/updateById/deleteById
+    │   ├── ProSqlModule.php        # wires a shared Connection into the container; build() runs SchemaBuilder over every #[ProEntity]
+    │   ├── Exceptions/QueryException.php
+    │   ├── Attributes/             # #[ProEntity]/#[Primary]/#[Link]/#[Timestamp]/#[Unique]/#[UniqueMap] — see "Entities & schema sync"
+    │   └── Schema/                 # EntityScanner/SchemaInspector/SchemaDiffer/DdlGenerator/SchemaBuilder/MigrationWriter — see "Entities & schema sync"
     │
     ├── session/                # the SESSION package ("Session\") — a dependency, not app code
     │   ├── composer.json
@@ -82,31 +124,58 @@ of them in its own source.
     │   ├── SessionMiddleware.php    # resolves the incoming token, then wraps the result via Session::response()
     │   └── SessionModule.php        # builds SessionConfig/SessionCodec/Session, config read via Runner::get('session')
     │
-    └── tester/                 # the TESTER package ("Tester\") — a dependency, not app code
+    ├── tester/                 # the TESTER package ("Tester\") — a dependency, not app code
+    │   ├── composer.json
+    │   ├── TesterModule.php         # contributes TesterController only when Runner::get('tester')['enabled']
+    │   ├── TesterController.php     # GET /tester (the UI page), GET /tester/routes (JSON route list — Page-returning routes excluded)
+    │   ├── Tester.php               # Tester::comment("...") — a runtime no-op; RouteCompiler reads its argument from source text instead
+    │   └── resources/index.html     # the UI itself — vanilla HTML/CSS/JS, no build step, no CDN
+    │
+    └── app-viewer/              # the APPVIEWER package ("AppViewer\") — Tester's sibling, for Page-returning routes
         ├── composer.json
-        ├── TesterModule.php         # contributes TesterController only when Runner::get('tester')['enabled']
-        ├── TesterController.php     # GET /tester (the UI page), GET /tester/routes (JSON route list)
-        ├── Tester.php               # Tester::comment("...") — a runtime no-op; RouteCompiler reads its argument from source text instead
-        └── resources/index.html     # the UI itself — vanilla HTML/CSS/JS, no build step, no CDN
+        ├── AppViewerModule.php      # contributes AppViewerController only when Runner::get('app_viewer')['enabled']
+        ├── AppViewerController.php  # GET /app-viewer (UI), GET /app-viewer/pages (JSON list), GET .../props + POST .../render (re-invoke live)
+        └── resources/index.html     # the UI itself — same no-build-step approach as Tester's
 ```
 
 Each package's version and dependencies live in its own `composer.json`. The
 root [composer.json](composer.json) declares your app's dependency on all
-three (as local path repositories) and autoloads your own `src/` under
-`App\`. [app.php](app.php) — at the project root, not nested in a `config/`
-folder — lists which modules the `Kernel` should boot, and
-[runner/runner.php](runner/runner.php) is what actually loads it (see below).
+five (as local path repositories) and autoloads your own `src/` under
+`App\` (plus `lib/controllers/` under `Lib\Controllers\` — see "Using
+AppViewer" for why that split exists). [app.php](app.php) — at the project
+root, not nested in a `config/` folder — lists which modules the `Kernel`
+should boot, and [runner/runner.php](runner/runner.php) is what actually
+loads it (see below).
+
+## Quick start
+
+```bash
+# .env.local already ships with working dev defaults; fill in real
+# DB_* credentials and a real SESSION_SECRET in .env.production/.env.staging
+# before ever deploying with --production/--staging
+composer install            # resolves all 5 packages via path repos, writes vendor/autoload.php
+php apc start                # clean build, then serves at 127.0.0.1:7070 — Ctrl+C to stop
+# or point an Apache vhost's DocumentRoot at this folder (mod_rewrite enabled) to use .htaccess
+```
+
+This has been verified end-to-end (PHP 8.5, `composer install`, every `apc`
+command, and every curl example in [Walkthrough](#walkthrough)) — all of it
+ran and returned exactly what's documented.
 
 ## runner/ and ApiPro\Runner
 
 `runner/` is boot-time config, one file per concern, never web-reachable
-(`.htaccess` forbids it — only `require()`d by PHP):
+(`.htaccess` forbids it — only `require()`d by PHP), and treated as a
+disposable build artifact: `apc build` regenerates every file in it (see
+"apc — the CLI"), so nothing here should ever be hand-edited and expected
+to survive.
 
 - **[runner/runner.php](runner/runner.php)** — "the configuration set for
   running". Loads Composer's autoloader, calls `ApiPro\Runner::boot($basePath)`
-  (which reads `.env`, evaluates `app.php`, and requires every other file
-  in this folder — all exactly once), and returns the fully resolved
-  config array. [index.php](index.php) just does:
+  (which resolves the right `.env` file for the current stage/service,
+  evaluates `app.php`, and requires every other file in this folder — all
+  exactly once), and returns the fully resolved config array. [index.php](index.php)
+  just does:
 
   ```php
   $config = require __DIR__ . '/runner/runner.php';
@@ -114,17 +183,26 @@ folder — lists which modules the `Kernel` should boot, and
   Kernel::boot($config)->handle();
   ```
 
-- **[runner/prosql.php](runner/prosql.php)** — DB_* config, read via
+- **[runner/prosql.php](runner/prosql.php)** — DB_*/`TABLE_WRITE` config, read via
   `Runner::get('prosql')` inside `ProSqlModule`.
 - **[runner/session.php](runner/session.php)** — SESSION_* config, read
   via `Runner::get('session')` inside `SessionModule`.
 - **[runner/controllers.php](runner/controllers.php)** — this app's own
   controller classes, read via `Runner::get('controllers')` inside
-  `App\Application::controllers()`, instead of hardcoding the list there.
+  `App\Application::controllers()` — auto-discovered, not hand-maintained
+  (every `src/Controllers/` and `lib/controllers/` class carrying
+  `#[RestController]`, found by `ApiPro\ClassDiscovery`).
+- **[runner/entities.php](runner/entities.php)** — this app's own
+  `#[ProEntity]` classes, read via `Runner::get('entities')` inside
+  `ProSqlModule::build()` — auto-discovered the same way, under
+  `src/Entities/`. See "Entities & schema sync" below.
 - **[runner/tester.php](runner/tester.php)** — `{ enabled }` for
   `packages/tester`'s API explorer, read via `Runner::get('tester')`
-  inside `TesterModule` (`TESTER_ENABLED` in `.env`) — see "Using Tester"
-  below.
+  inside `TesterModule` (`TESTER_ENABLED` in `.env.<stage>`) — see "Using
+  Tester" below.
+- **[runner/app_viewer.php](runner/app_viewer.php)** — `{ enabled }` for
+  `packages/app-viewer`'s page explorer, same shape, `APP_VIEWER_ENABLED` —
+  see "Using AppViewer" below.
 
 The point isn't only "fewer lines in `index.php`" — it's that **nothing
 else should read `$_ENV`, `require app.php`, or `require` a `runner/*.php`
@@ -138,7 +216,7 @@ use ApiPro\Runner;
 
 Runner::get('name');              // a key from app.php's returned array — e.g. 'api-pro'
 Runner::get('prosql');            // runner/prosql.php's array, whole
-Runner::env('DB_HOST', '127.0.0.1'); // a raw environment variable, loaded from .env by boot()
+Runner::env('DB_HOST', '127.0.0.1'); // a raw environment variable, loaded from the resolved .env file by boot()
 ```
 
 `ProSqlModule`/`SessionModule`/`Application` are the working examples —
@@ -171,7 +249,7 @@ very next request reflects it, no cache to clear. In any other `env`,
 the first request writes the compiled table to `storage/routes.cache.php`;
 every request after that just `require`s the file directly, so
 `RouteCompiler`/Reflection never runs again until you delete it (do that
-after deploying a routing change).
+after deploying a routing change, or run `apc build`/`apc build --clean`).
 
 ## app.php and module references
 
@@ -189,6 +267,7 @@ return [
         '@pro-sql' => '1.0.0',
         '@session' => '1.0.0',
         '@tester' => '1.0.0',
+        '@app-viewer' => '1.0.0',
         Application::class,
     ],
 ];
@@ -203,15 +282,16 @@ A module entry is one of:
   `packages/pro-sql/composer.json` to `1.1.0` but `app.php` still says
   `'@pro-sql' => '1.0.0'`), and derives the module class from that
   package's PSR-4 namespace by convention: a package autoloading `Foo\\`
-  is expected to declare `Foo\FooModule` — exactly how `ProSql\ProSqlModule`
-  and `Session\SessionModule` are already laid out. The resolved module is
-  built with **no constructor arguments** — `ProSqlModule`/`SessionModule`
-  are self-configuring, reading their config via `Runner::get('prosql')`/
-  `Runner::get('session')` (loaded once by `runner/runner.php`, before
-  `Kernel::boot()` runs — see "runner/ and ApiPro\Runner" below). A plain
-  `Application::class` entry alongside these gets an ordinary integer
-  array key, same as any normal list value — PHP arrays mixing string and
-  integer keys are what makes this work in one `modules` array.
+  is expected to declare `Foo\FooModule` — exactly how `ProSql\ProSqlModule`,
+  `Session\SessionModule`, `Tester\TesterModule`, and `AppViewer\AppViewerModule`
+  are already laid out. The resolved module is built with **no constructor
+  arguments** — each is self-configuring, reading its config via
+  `Runner::get('prosql')`/`Runner::get('session')`/etc. (loaded once by
+  `runner/runner.php`, before `Kernel::boot()` runs — see "runner/ and
+  ApiPro\Runner" above). A plain `Application::class` entry alongside these
+  gets an ordinary integer array key, same as any normal list value — PHP
+  arrays mixing string and integer keys are what makes this work in one
+  `modules` array.
 - **A plain class-string** (e.g. `Application::class`) — for your own
   app-level module, which isn't a `packages/` dependency and so isn't a
   package reference. Built with `new $class()`.
@@ -232,7 +312,7 @@ use ApiPro\Attributes\Middleware;
 use ApiPro\Attributes\RestController;
 use Session\SessionMiddleware;
 
-#[RestController(prefix: '/health')]   // combines with Application::prefix() below -> /api/health
+#[RestController(prefix: '/health')]   // combines with Application's #[BaseRoot(...)] below -> /ap/v1/health
 #[Middleware(new SessionMiddleware(mandatory: true))]   // class default is also true
 class HealthController
 {
@@ -245,9 +325,9 @@ class HealthController
 }
 ```
 
-Note the `new` — `Session(mandatory: true)`/`SessionMiddleware(mandatory: true)`
-without it isn't valid PHP (that's a function call, not object construction).
-A method-level `#[Middleware(...)]` entry **replaces** a class-level one of
+Note the `new` — `SessionMiddleware(mandatory: true)` without it isn't
+valid PHP (that's a function call, not object construction). A
+method-level `#[Middleware(...)]` entry **replaces** a class-level one of
 the *same middleware class* rather than stacking both — that's what makes
 the `mandatory: false` override on `ping()` actually take effect instead of
 still being blocked by the class-level `mandatory: true`.
@@ -289,10 +369,37 @@ itself (see `HealthController::ping()`). Either way, once `$next()` (the
 controller) has run, the result is wrapped through `Session::response()` —
 see "Using Session" below for what that actually does.
 
+## Module route prefix
+
+A `Module` can prepend a base path to every controller it contributes —
+`App\Application` declares `/ap/v1` this way, so every controller under
+`src/Controllers/` and `lib/controllers/` only needs to declare its own
+prefix (e.g. `/health`, `/users`, `/site`), which combines to
+`/ap/v1/health`, `/ap/v1/users`, `/ap/v1/site`, etc.:
+
+```php
+use ApiPro\Attributes\BaseRoot;
+
+#[BaseRoot('/ap/v1')]
+class Application extends Module
+{
+    // ...register()/controllers() as before
+}
+```
+
+`Module::prefix()` reads `#[BaseRoot(...)]` off the concrete subclass by
+default — no attribute means no prefix, the same as the old `''` default —
+and the resulting path is `module prefix + controller's own
+#[RestController(prefix: ...)] + the method's #[GetMapping(...)]/etc.
+path`, in that order. Override `prefix()` itself directly instead of using
+the attribute if a module needs to compute its prefix at runtime rather
+than declare a fixed string — a method override always takes priority,
+the normal way inheritance works.
+
 ## Using ProSql for MySQL
 
 Every MySQL feature goes through `ProSql\Connection` / `ProSql\QueryBuilder`
-/ `ProSql\Repository` — nothing in `src/` should touch `PDO` directly.
+/ `ProSql\ProRepo` — nothing in `src/` should touch `PDO` directly.
 
 **Quick queries**, inject `ProSql\Connection` wherever you need it (the
 container autowires it):
@@ -318,33 +425,115 @@ class UserService
 }
 ```
 
-**Repository pattern** for a table's full CRUD, extend `ProSql\Repository`:
+**Repository pattern** for a table's full CRUD, extend `ProSql\ProRepo`:
 
 ```php
-namespace App\Repositories;
+namespace App\Repo;
 
-use ProSql\Repository;
+use ProSql\ProRepo;
 
-class UserRepository extends Repository
+class UserRepo extends ProRepo
 {
     protected string $table = 'users';
-    protected string $primaryKey = 'id';
 
-    public function findByEmail(string $email): ?array
+    public function findByMail(string $mail): ?array
     {
-        return $this->query()->where('email', '=', $email)->first();
+        return $this->query()->where('mail', '=', $mail)->first();
     }
 }
 ```
 
-Then type-hint `UserRepository` in a service/controller constructor — the
-container builds it (and its `Connection` dependency) automatically.
+Then type-hint `UserRepo` in a service/controller constructor — the
+container builds it (and its `Connection` dependency) automatically. This
+is the actual pattern `App\Services\UserService` and `App\Controllers\UserController`
+use — real rows in a real `users` table, not an in-memory demo array.
 
-Configure credentials in `.env` (copy from `.env.dev`) —
+Configure credentials in `.env.local` (or `.env.production`/`.env.staging`,
+loaded via `apc build --production`/`apc start --staging`/etc.) —
 [runner/prosql.php](runner/prosql.php) reads `DB_HOST`/`DB_PORT`/
 `DB_DATABASE`/`DB_USERNAME`/`DB_PASSWORD`/`DB_CHARSET`, and `ProSqlModule`
 binds a `Connection` singleton with `Runner::get('prosql')` when
 `'@pro-sql' => '1.0.0'` boots.
+
+## Entities & schema sync — `apc build`'s auto-migration
+
+Beyond raw queries and `ProRepo`, `pro-sql` can keep a real table in sync
+with a plain PHP class — declare the shape once, as attributes, and
+`apc build` figures out what the database needs and (depending on
+`TABLE_WRITE`) applies it:
+
+```php
+namespace App\Entities;
+
+use ProSql\Attributes\Link;
+use ProSql\Attributes\Primary;
+use ProSql\Attributes\ProEntity;
+use ProSql\Attributes\Timestamp;
+use ProSql\Attributes\Unique;
+
+#[ProEntity('users')]
+class UserEntity
+{
+    #[Primary('int')]
+    public int $id;
+
+    public string $name;
+    public string $mail;
+    public string $password;
+
+    #[Timestamp(current: true)]
+    public string $createdAt;
+
+    #[Timestamp(current: true, update: true)]
+    public string $updatedAt;
+}
+```
+
+Every public, typed, non-static property becomes exactly one column
+(`ProSql\Schema\EntityScanner` does the reflecting) — its SQL type comes
+from the PHP property type unless an attribute says otherwise:
+
+- **`#[ProEntity('<table>')]`** (class-level, required) — which table this
+  class maps to.
+- **`#[Primary('int'|'uuid'|'bigint')]`** — exactly one property per
+  entity must have this (`EntityScanner` throws otherwise). `'int'`/`'bigint'`
+  become `INT UNSIGNED`/`BIGINT UNSIGNED AUTO_INCREMENT`; `'uuid'` becomes
+  `CHAR(36)` with no auto-increment (your own code supplies the value).
+- **`#[Link('<table>.<column>')]`** — a foreign key; the column's own SQL
+  type is still derived from the PHP property type, this just adds the
+  `FOREIGN KEY` constraint.
+- **`#[Timestamp(current: bool, update: bool)]`** — a `DATETIME` column;
+  `current: true` adds `DEFAULT CURRENT_TIMESTAMP`, `update: true` adds
+  `ON UPDATE CURRENT_TIMESTAMP`.
+- **`#[Unique]`** — a single-column `UNIQUE` constraint.
+- **`#[UniqueMap('<table>.<other-column>')]`** — put this on two columns on
+  the *same* entity, each pointing at the other, for one joint
+  `UNIQUE KEY` across both.
+
+`apc build` (via `ProSqlModule::build()` → `ProSql\Schema\SchemaBuilder`)
+scans every class `runner/entities.php` lists (auto-discovered — see
+"runner/ and ApiPro\Runner"), reads what each table actually looks like
+right now (`SchemaInspector`, straight from `information_schema`), diffs
+the two (`SchemaDiffer`), and — depending on `TABLE_WRITE` in
+`.env.<stage>` — either applies the difference or just reports it:
+
+- **`fixed`** (production's default) — reports only; nothing is ever
+  executed against the database.
+- **`update`** (local's default) — safe/additive changes apply
+  automatically: creating a brand-new table, adding a missing column,
+  adding a foreign key (once its referenced table exists). An existing
+  column's type/nullability changing is still only ever *reported*, even
+  in this mode — never applied without `force`.
+- **`force`** — everything `update` does, plus those column type/nullability
+  changes are actually run as `MODIFY COLUMN`.
+
+**No mode ever drops a column or a table** — an extra column present in
+the database but no longer declared on the entity is purely informational
+in every mode. Every run — applied or only reported — writes one
+timestamped `.sql` file to [storage/migrations/](storage/migrations/) (via
+`MigrationWriter`) recording exactly what happened, so a `fixed`-mode run
+in production still leaves you a ready-to-review script instead of just a
+terminal message that scrolls away.
 
 ## Using Session — a stateless, JWT-style token
 
@@ -358,7 +547,7 @@ when `'@session' => '1.0.0'` boots:
 ```php
 // runner/session.php
 return [
-    'secret' => $_ENV['SESSION_SECRET'] ?? 'change-me-in-.env',
+    'secret' => $_ENV['SESSION_SECRET'] ?? 'change-me-in-.env.<stage>',
     'ttl' => (int) ($_ENV['SESSION_TTL'] ?? 3600),        // seconds a token stays valid
     'refresh_ttl' => (int) ($_ENV['SESSION_REFRESH_TTL'] ?? 1_209_600),
     'version' => (int) ($_ENV['SESSION_VERSION'] ?? 1),    // bump to invalidate every token at once
@@ -429,12 +618,15 @@ class AuthController
 - **`Session::logout()`** — drops the current token, so the response that
   follows carries none. Since this is stateless, it can't reach out and
   invalidate a token already in a client's hands — to kill every
-  outstanding token at once, bump `SESSION_VERSION` in `.env` instead;
+  outstanding token at once, bump `SESSION_VERSION` in `.env.<stage>` instead;
   `resolve()` rejects anything signed with an older version.
 
 `SessionMiddleware` does the `resolve()` → (mandatory check) → `$next()` →
 `response()` sequence for you; you only need `Session` directly for
 `create()`/`logout()` (and to read `current()`) from inside a controller.
+`App\Controllers\AuthController`'s `login()`/`refresh()` are the working
+example — access + refresh tokens issued at login, both re-issued together
+on refresh.
 
 ## Using Packet — a uniform response shape
 
@@ -443,6 +635,24 @@ it's the **only** shape `ApiPro\Response::json()` accepts — its signature is
 `json(Packet $packet, int $status = 200)`, not `mixed`. Every response that
 goes through `Response::json()` — a controller's own explicit call, a 404,
 a 400 from `InputBag`, a 401 from `SessionMiddleware` — is a `Packet`.
+
+`Response` and `Packet` are different layers: `Response::json()` writes
+the real HTTP status line (a connection-layer fact), `Packet` carries
+`success`/`message`/`data`/`errorCode` (a data-layer fact). They're
+related, not fused — every `Packet` has an `httpStatus()` (200 by
+default, for success *and* failure alike) that `Kernel::handle()` reads
+and passes straight to `Response::json()`. Leave it at its default and
+everything goes out as 200 regardless of `success`; set it explicitly
+(see `PacketFailed`/`PacketSuccess` below) when you actually want the
+wire-level status to reflect the result. Either way, `errorCode` is a
+*separate*, purely body-level field — it never touches the HTTP status.
+
+`data` and `errorCode` each belong to exactly one side: `data` is a
+success concept, `errorCode` a failure one, and `success()`/`failed()`
+enforce that directly rather than leaving it to convention —
+`success()` always clears `errorCode` to `0`, `failed()` always clears
+`data` to `null`. So no matter how a `Packet` gets built, the body never
+carries both at once, and never the "wrong" one for the result.
 
 `success()`/`failed()` are fluent (they return `$this`, mutating the same
 `Packet`), `with($key, $value)` attaches an extra top-level field (that's
@@ -470,10 +680,10 @@ use ApiPro\PacketSuccess;
 #[GetMapping('/{id}')]
 public function show(Request $request): array
 {
-    $user = $this->userService->find($request->params->getInt('id'));
+    $user = $this->userRepo->find($request->params->getInt('id'));
 
     if ($user === null) {
-        throw new PacketFailed('User not found', 404);
+        throw new PacketFailed('User not found', httpStatus: 404);
     }
 
     return $user;   // plain array — Kernel wraps it in Packet::success() for you
@@ -482,27 +692,44 @@ public function show(Request $request): array
 #[PostMapping]
 public function store(Request $request): Packet
 {
-    return new PacketSuccess(['mail' => $request->body->getMail('mail')], 'Validated');
+    return new PacketSuccess('Validated', data: ['mail' => $request->body->getMail('mail')]);
 }
 ```
 
-- **`PacketSuccess($data, $message = 'Success')`** — a named constructor for
-  the success half of `Packet` (`return new PacketSuccess($data, 'msg')`
-  instead of `return (new Packet())->success($data, 'msg')`). It's still
-  just a `Packet` — only reach for it when you want a custom message; a
-  plain array/scalar return already auto-wraps for free.
-- **`PacketFailed($message, $status = 400, $data = null)`** — throw this
-  from *anywhere* — a controller, a middleware, `InputBag`'s own
-  validation, `Router`'s "not found" fallback — to fail a request with a
-  real HTTP status, with **no `Response::json()` call at all**.
-  `Kernel::handle()` catches `PacketFailed` in exactly one place and
-  converts it to the matching `{success:false,...}` response with that
-  status — the same "auto convert" `Kernel` already does for a plain
-  return value, just for the failure side. Being a real exception, it
-  propagates through any number of middleware layers on its own (e.g. a
-  controller throwing it skips `SessionMiddleware`'s token re-attachment
-  entirely, the same as the old `Response::json()` + `exit` did) — nothing
-  in between needs to catch or rethrow it.
+Each takes `$message` first, then the field that's actually *theirs* —
+`PacketSuccess` gets `$data`, `PacketFailed` gets `$errorCode` — there's
+no way to hand a `PacketSuccess` an `errorCode` or a `PacketFailed` a
+`data`, because neither constructor even accepts one:
+
+- **`PacketSuccess($message = 'Success', $httpStatus = 200, $data = null)`**
+  — a named constructor for the success half of `Packet`, for when you
+  want a custom message/status/data; a plain array/scalar return already
+  auto-wraps into `Packet::success()` for free.
+- **`PacketFailed($message = 'Failed', $errorCode = 0, $httpStatus = 200)`**
+  — throw this from *anywhere* — a controller, a middleware, `InputBag`'s
+  own validation, `Router`'s "not found" fallback — to fail a request,
+  with **no `Response::json()` call at all**. `Kernel::handle()` catches
+  it in exactly one place and converts it to the matching
+  `{success:false,...}` response — the same "auto convert" `Kernel`
+  already does for a plain return value, just for the failure side. Being
+  a real exception, it propagates through any number of middleware layers
+  on its own (e.g. a controller throwing it skips `SessionMiddleware`'s
+  token re-attachment entirely, the same as the old `Response::json()` +
+  `exit` did) — nothing in between needs to catch or rethrow it. Need to
+  attach context to a failure (like the unmatched path on a 404)? Fold it
+  into `$message` — there's no `$data` slot to put it in instead.
+
+`$httpStatus` is the *real* HTTP status `Response::json()` sends —
+default `200` for success **and** failure alike, so "every response is
+200 unless you ask otherwise" — but it never itself appears in the body;
+a client checks `success`/`error_code`, not the status line, for
+anything finer-grained than "did this 4xx/5xx".
+
+`Packet::toArray()` drops `data`/`error_code` from the body whenever
+they're "empty" in the loose PHP sense — `null`, `0`, `''`, `[]`, `false`
+all count, not just the strict default. `new PacketSuccess('User not
+found')` alone renders as `{"success": true, "message": "User not
+found"}` — no `data` key at all.
 
 ## Using Page — a complete HTML page
 
@@ -590,14 +817,27 @@ however you write them), but reach for it on anything that isn't a
 literal you wrote yourself, the same reason you'd escape output in any
 templating layer.
 
-**[`/api-pro`](src/Controllers/HomeController.php)** is a full working
-example of this: `HomeController` renders `lib/page/HomePage.php` with a
-real list of posts as props, and the page's own JS `POST`s a new one to
-`createPost()` (`/api/api-pro/posts`) and appends the result to the DOM —
-a genuine interactive page, not just static markup. `PostService` behind
-it is in-memory, the same demo-only limitation `UserService` already has
-(no persistence across requests) — swap it for a real `ProSql\Repository`
-to make posts durable.
+`lib/controllers/` (namespace `Lib\Controllers\`, its own PSR-4 root — see
+root `composer.json`) is this app's own small site built entirely this
+way: `HomeController` (`/site`), `AboutController` (`/site/about`),
+`DocsController` (`/site/docs`), `ReleasesController` (`/site/releases`),
+and `ContactController` (`/site/contact`) — each a single `#[GetMapping]`
+action returning `(new Page())->view('...')`, one matching file per
+controller in `lib/page/`. `HomeController` in particular renders
+`lib/page/HomePage.php` with a real list of posts as props, and the
+page's own JS `POST`s a new one to `App\Controllers\HomeController::createPost()`
+(`/ap/v1/api-pro/posts`) and appends the result to the DOM — a genuine
+interactive page, not just static markup. `PostService` behind it is
+still in-memory (no persistence across requests) — unlike `UserService`,
+which queries a real `App\Repo\UserRepo` (extending `ProSql\ProRepo`)
+instead. Give `PostService` the same treatment to make posts durable too.
+
+Splitting `Lib\Controllers\` (page-returning, this project's own little
+site) from `App\Controllers\` (JSON/API) isn't required by the framework
+— it's this app's own convention, and it's exactly what lets `Tester` and
+`AppViewer` each show only their own half without either one hardcoding
+route names: see "Using AppViewer" below for the two-signal check both
+tools share.
 
 ## Validating input with InputBag
 
@@ -619,7 +859,7 @@ public function store(Request $request): Packet
     $roles = $request->body->getJson('roles', []);        // optional — [] if absent
     $language = $request->query->getString('lang', 'en'); // optional query string value
 
-    return new PacketSuccess([...], 'Validated');
+    return new PacketSuccess('Validated', data: [...]);
 }
 ```
 
@@ -653,14 +893,14 @@ containing valid JSON.
 ## Using Tester — a Swagger-like API explorer
 
 Visit **`/tester`** (e.g. `http://127.0.0.1:7070/tester`) for an
-interactive explorer: every route in your API (not `/tester`'s own two —
-those are filtered out as the tool's own plumbing, not something to try
-out), grouped into a collapsible list **per controller** (click a
-controller's name to fold/unfold its routes — they start expanded), with
-a form for path params/query string/JSON body/a Bearer token, and a
-"Send" button that calls the real endpoint via `fetch()` (same-origin —
-no proxy, no CORS setup needed) and shows the actual status code +
-response body.
+interactive explorer of your **JSON/API** routes — `Page`-returning routes
+(the site under `lib/controllers/`) are excluded here on purpose; see
+"Using AppViewer" for those instead. Every remaining route is grouped into
+a collapsible list **per controller** (click a controller's name to
+fold/unfold its routes — they start expanded), with a form for path
+params/query string/JSON body/a Bearer token, and a "Send" button that
+calls the real endpoint via `fetch()` (same-origin — no proxy, no CORS
+setup needed) and shows the actual status code + response body.
 
 Paths are shown at three levels, each trimmed to just what's new at that
 level:
@@ -670,7 +910,7 @@ level:
   segment common to every route (`commonPrefix()`), never hardcoded.
 - **Controller group**: that controller's own segment, with the app's
   base path stripped off (e.g. `HealthController` shows `/health`, not
-  `/api/health`) — this one is *not* guessed from paths: `RouteCompiler`
+  `/ap/v1/health`) — this one is *not* guessed from paths: `RouteCompiler`
   sends the controller's real declared prefix (module prefix +
   `#[RestController(prefix: ...)]`) as `route.prefix`, so it's exact even
   for a controller with only one route (diffing paths against themselves
@@ -680,7 +920,7 @@ level:
   the full path repeated at every level.
 
 Opening a route's form panel still shows the **full** real path in its
-heading (e.g. `POST /api/health/logout`) — that's the request you're
+heading (e.g. `POST /ap/v1/health/logout`) — that's the request you're
 about to send, so it stays unambiguous there even though the list next
 to it stays short.
 
@@ -699,7 +939,7 @@ public function controllers(): array
 ```
 
 Controlled by [runner/tester.php](runner/tester.php) (`Runner::get('tester')['enabled']`,
-`TESTER_ENABLED` in `.env`) — **enabled by default**, since it's meant as a
+`TESTER_ENABLED` in `.env.<stage>`) — **enabled by default**, since it's meant as a
 dev convenience. Set `TESTER_ENABLED=false` before deploying somewhere
 `/tester` shouldn't be publicly reachable: it doesn't bypass any
 auth/validation (it just builds the same requests you could craft with
@@ -787,28 +1027,45 @@ behind a "▾ Description" toggle, **collapsed by default** — click to
 reveal it. A method with no `Tester::comment(...)` call shows no toggle
 or description block at all.
 
-## Module route prefix
+## Using AppViewer — the same idea, for pages
 
-A `Module` can prepend a base path to every controller it contributes —
-`App\Application` sets `/api` this way, so `HealthController`/`UserController`
-only need to declare their own `/health`/`/users` (which combine to
-`/api/health`, `/api/users`, etc.):
+`Tester` explores JSON routes; **`AppViewer`** is its sibling for
+`Page`-returning ones. Visit **`/app-viewer`** for a list of every route
+whose controller method returns `Page` — click one to re-render it live,
+edit the props it was built with, and re-render again with your own
+values, all without leaving the browser.
+
+Both tools use the exact same two-signal check to decide what's "a page":
+a route counts if its controller class is under `Lib\Controllers\`, OR its
+method's declared return type is `Page` (via `ApiPro\Page::isReturnedBy()`,
+checked by Reflection) — either signal alone is enough. `Tester` uses this
+to **exclude** page routes from its own list; `AppViewer` uses the
+identical check to **include** only them, so a route always shows up in
+exactly one explorer, never both, without either one having to know the
+other's route names.
 
 ```php
-class Application extends Module
-{
-    public function prefix(): string
-    {
-        return '/api';
-    }
-
-    // ...register()/controllers() as before
-}
+// AppViewerController::pages() — driven by the same compiled route table Tester and Router use
+GET /app-viewer/pages   // every Page-returning route, minus /app-viewer's own
+GET /app-viewer/props   // re-invokes one of them live, returns Page::getProps()
+POST /app-viewer/render // re-invokes it once to find its view() name, then re-renders with YOUR props instead
 ```
 
-Override `prefix()` (it defaults to `''`) on any `Module` — the resulting
-path is `module prefix + controller's own #[RestController(prefix: ...)] +
-the method's #[GetMapping(...)]/etc. path`, in that order.
+`render` only works for a `view()`-mode `Page` (a route using `title()`/
+`body()`'s placeholder-template mode 400s here — there's no `view` name to
+re-render with different props). Since re-invoking a controller action
+means genuinely calling it again — real side effects included, not a
+cached snapshot — a page whose action writes something on every call
+(a counter, a log line) will do that again each time you view or
+re-render it here, the same as a real request would.
+
+Controlled by [runner/app_viewer.php](runner/app_viewer.php)
+(`Runner::get('app_viewer')['enabled']`, `APP_VIEWER_ENABLED` in
+`.env.<stage>`) — same enabled-by-default convention as `TESTER_ENABLED`,
+same reasoning for turning it off before a public deploy: it doesn't
+bypass any auth, but it does re-invoke and display every page route to
+anyone who visits it. `apc start`/`apc -v` print both tools' URLs
+side by side, whichever are enabled.
 
 ## Adding a new endpoint
 
@@ -817,24 +1074,26 @@ the method's #[GetMapping(...)]/etc. path`, in that order.
    with the owning module's `prefix()` — see above) and
    `#[GetMapping]`/`#[PostMapping]`/etc. on the method. Add `#[Middleware(...)]`
    on the class or method if it needs to run through one.
-2. If it's a new controller class, list it in
-   [runner/controllers.php](runner/controllers.php) (what
-   `App\Application::controllers()` reads from).
+2. Run `apc build` (or `apc build --clean`) so `runner/controllers.php`
+   picks up a brand-new controller class — an existing class just gaining
+   a new method needs no rebuild, since `Runner::routes()` recompiles
+   fresh every request in `env: local` anyway.
 3. Need a dependency? Type-hint it in the controller's constructor — the
    container resolves it automatically. Register it as a singleton in
    `App\Application::register()` if it should only be built once.
 
 ## Adding a new module or middleware
 
-Everything application-specific lives in `src/`, its controller list in
-`runner/controllers.php`. For a new feature area, either add its
-controllers there, or create a class extending `ApiPro\Module` and list it
-in `app.php`'s `modules` array — as `'@name' => 'version'` if it's a new
-package under `packages/` (give it its own `runner/<name>.php` config file
-and read it via `Runner::get('<name>')`, per "runner/ and ApiPro\Runner"
-above), or as a plain class-string/instance otherwise. For a new
-middleware, implement `ApiPro\MiddlewareInterface` and reference its
-class-string in a controller's `#[Middleware(...)]`.
+Everything application-specific lives in `src/` (plus `lib/controllers/`
+for page-returning routes), auto-discovered into `runner/controllers.php`
+by `apc build` — see "runner/ and ApiPro\Runner" above. For a new feature
+area, either add its controllers there, or create a class extending
+`ApiPro\Module` and list it in `app.php`'s `modules` array — as
+`'@name' => 'version'` if it's a new package under `packages/` (give it
+its own `runner/<name>.php` config file and read it via
+`Runner::get('<name>')`), or as a plain class-string/instance otherwise.
+For a new middleware, implement `ApiPro\MiddlewareInterface` and
+reference its class-string in a controller's `#[Middleware(...)]`.
 
 ## apc — the CLI
 
@@ -846,15 +1105,22 @@ same route-caching rules — so what it reports is what a real request
 would actually get, not a separate config path.
 
 ```bash
-php apc -v                        # app + every packages/* package's name and version
-php apc start                     # clean + rebuild, then start PHP's built-in server at 127.0.0.1:7070
-php apc start 8081                 # ...same, but on 127.0.0.1:8081
-php apc build                     # just the build step — force-compiles every module's routes, writes storage/routes.cache.php
-php apc build -c, --clean         # deletes that cache file
-php apc install                    # validates every app.php module reference actually resolves
-php apc install 1.0.0              # ...and that app.php's own 'version' equals 1.0.0
-php apc module pro-sql             # shows packages/pro-sql's version + whether/how app.php references it
-php apc module pro-sql 1.0.0       # ...and validates packages/pro-sql's composer.json version equals 1.0.0
+php apc -v                          # app + every packages/* package's name and version
+php apc start                       # clean + rebuild, then start PHP's built-in server at 127.0.0.1:<PORT in .env.<stage>> (prints /tester, /app-viewer if enabled)
+php apc start 8081                  # ...same, but on 127.0.0.1:8081
+php apc stop                        # stop the ONE server a matching `apc start` began, wherever it's actually running
+php apc build                       # regenerate runner/ in place, force-compile + cache routes, run every module's build() hook
+php apc build -c, --clean           # delete the whole runner/ folder first, then build as above
+php apc clean                       # delete the whole runner/ folder (and route cache) — no rebuild
+php apc build --local               # ...any of the above against .env.local instead of the real APP_ENV env var / 'local' default
+php apc build --production          # ...or against .env.production
+php apc build --staging             # ...or .env.staging
+php apc start --production --auth --billing --search  # one server PER named service, each its own .env.<service>.prod's PORT, together until Ctrl+C
+php apc stop  --production --auth --billing --search  # stop all three, from any other process
+php apc install                     # no module (defaults to `api-pro`): validates every app.php module reference actually resolves
+php apc install api-pro 1.0.0       # ...and that app.php's own 'version' equals 1.0.0
+php apc install pro-sql             # any other module: shows packages/pro-sql's version + whether/how app.php references it
+php apc install pro-sql 1.0.0       # ...and validates packages/pro-sql's composer.json version equals 1.0.0
 ```
 
 `start` is the everyday dev-loop command: it always clears any existing
@@ -865,48 +1131,123 @@ possible to start the server against a stale build, whatever `env` says.
 — e.g. as a separate step in a deploy script, ahead of whatever actually
 serves the app there (Apache/nginx+FPM, not this built-in server).
 
-`install` and `module` are **read-only diagnostics** — they report
-mismatches (exit code `1`) rather than ever rewriting `app.php` or a
-package's `composer.json` themselves; editing either is still a manual,
-reviewed change. `build` is exactly what it sounds like — the same role as
-`npm run build` or Laravel's `route:cache`: a deploy-time step, run once
-ahead of traffic, right before you switch `app.php`'s `env` away from
-`local` — see "Endpoints are compiled once, not re-scanned per dispatch"
-above for why that matters outside `env: local`. Add a new command by
-adding an `ApiPro\Cli\Command` implementation under `packages/api-pro/Cli/`
-and listing it in `Application::COMMANDS`.
+`install` is a **read-only diagnostic** — it reports a mismatch (exit code
+`1`) rather than ever rewriting `app.php` or a package's `composer.json`
+itself; editing either is still a manual, reviewed change. `build` is
+exactly what it sounds like — the same role as `npm run build` or
+Laravel's `route:cache`: a deploy-time step, run once ahead of traffic,
+right before you switch `app.php`'s `env` away from `local` — see
+"Endpoints are compiled once, not re-scanned per dispatch" above for why
+that matters outside `env: local`. Add a new command by adding an
+`ApiPro\Cli\Command` implementation under `packages/api-pro/Cli/` and
+listing it in `Application::COMMANDS`.
 
-## Running it
+## Microservices: `--<stage>` + `--<service>`
+
+Every `--xxx` flag on `apc` is either a **stage** or a **service**:
+
+- A **stage** is one of exactly three names — `Runner::STAGES` —
+  `local`, `production`, `staging`. Nothing else counts, by design: this
+  closed set is what lets `apc` tell "which stage" apart from "which
+  service" without them colliding.
+- A **service** is any OTHER `--name` — `--auth`, `--billing`, whatever
+  this codebase is being run as. Not a fixed list; add a matching
+  `.env.<service>.<stage-abbreviation>` file and `--<service>` works.
+
+No `--<service>` at all is the **flat/default app** — `.env.<stage>`,
+spelled out in full (`.env.local`, `.env.production`, `.env.staging`),
+same as before this app ever had a notion of "services". Give a service
+name and the file becomes `.env.<service>.<stage-abbreviation>` instead
+— `dev`/`prod`/`stag` — e.g. `.env.auth.dev`, `.env.billing.prod` (see
+`Runner::envFilePath()`). Every `.env.*` file, flat or per-service, must
+declare its own matching `APP_ENV=<stage>` line — `Runner::get('env')`
+reflects whatever a file actually says, not just whichever `--<stage>`
+flag was passed.
+
+Two env vars every one of these files carries: `SERVICE` (a display
+name, shown in `apc start`'s own banner) and `PORT` (what `apc start`
+binds to by default, when no explicit `host:port` is given). A third,
+`DEFAULT_SERVICE`, only applies to a flat/default file — set it to
+`false` once a stage is meant to run ONLY as named services, never as
+the undifferentiated whole app; `apc start --<stage>` then refuses,
+with a message telling you to start a named service instead, rather
+than silently doing it anyway.
+
+Give `apc start`/`apc stop` more than one `--<service>` and they switch
+to a genuinely different mode: one `php -S` process PER named service
+(each its own `.env.<service>.<stage>`, own `PORT`), all started
+together and stopped together — see
+[MultiStartCommand](packages/api-pro/Cli/MultiStartCommand.php) /
+[MultiStopCommand](packages/api-pro/Cli/MultiStopCommand.php). Every
+child's log lines are tagged `[name] ...` in that same terminal so it's
+clear which service produced which line. Exactly one `--<service>` (or
+none) stays the plain single-server `apc start`/`apc stop` above.
+
+`apc stop` never needs to be the same process, or even the same
+terminal, that ran `apc start` — every server `apc start` spawns writes
+its own PID to `storage/pids/<key>.pid` the moment it binds
+(`<service>.<stage>.pid`, or just `<stage>.pid` for the flat case — see
+[ServiceProcess](packages/api-pro/Cli/ServiceProcess.php)), and
+`apc stop` computes that exact same key independently, from the exact
+same flags, to find and signal it.
+
+## Crashes never reach the browser raw
+
+`index.php`'s own boot (`require runner/runner.php`, then
+`Kernel::boot($config)->handle()`) is wrapped in a `try`/`catch` —
+[ApiPro\CrashPage](packages/api-pro/CrashPage.php) is what a boot failure
+(a missing/wiped `runner/`, an unreachable database, anything) turns
+into instead of PHP's own raw warning/fatal-error output: always the
+same plain "Server Down" HTML page, HTTP 503, in every env — a boot
+failure is infrastructure being broken, not something a browser should
+ever have to make sense of, so there's no `env: local` exception here.
+A request-time exception (a controller throwing, `dispatch()` itself
+failing) never even gets this far — `Kernel::handle()`'s own
+`catch (\Throwable $e)` already converts that into a normal JSON 500
+`Packet` instead, and THAT still keeps the real message outside
+`env: local` — but both paths log through the same place either way.
+
+Either way, [ApiPro\Log::crash()](packages/api-pro/Log.php) appends a
+timestamped entry — exception class, message, file:line, stack trace —
+to `prologs.log`, ALWAYS at the project root (derived from `Log.php`'s
+own file location, not passed in by a caller — see its own docblock for
+why that's deliberate): one unbounded, append-only file, never rotated
+or truncated (it's meant as a durable audit trail, not a rolling debug
+log). Controlled by `LOGS` in `.env.<stage>` — set `LOGS=false` to turn
+logging off entirely; defaults to on.
+
+## MCP dev-tool server
+
+[tools/mcp/](tools/mcp/README.md) — an MCP server wrapping `apc` (plus
+`list_routes`, reading the compiled route table directly) as tools an
+AI assistant (Claude Desktop, Claude Code, ...) can call while
+developing this project. Launch it with `php mcp-server`. It's a plain,
+dependency-free PHP script talking JSON-RPC 2.0 over stdio — **not**
+part of the app itself: nothing here is booted by `app.php`, resolved
+via `Runner::modules()`, or reachable over HTTP. See
+[tools/mcp/README.md](tools/mcp/README.md) for the exact client config
+and what each tool does.
+
+## Walkthrough
+
+Walking through the token lifecycle:
 
 ```bash
-cp .env.dev .env           # then fill in real DB_* credentials and a real SESSION_SECRET
-composer install            # resolves all 4 packages via path repos, writes vendor/autoload.php
-php apc start                # clean build, then serves at 127.0.0.1:7070 — Ctrl+C to stop
-# or point an Apache vhost's DocumentRoot at this folder (mod_rewrite enabled) to use .htaccess
-```
-
-This has been verified end-to-end (PHP 8.5, `composer install`, every
-`apc` command, and every curl example below) — all of it ran and returned
-exactly what's documented.
-
-Then, walking through the token lifecycle:
-
-```bash
-curl -i localhost:7070/api/health
+curl -i localhost:7070/ap/v1/health
 # 401 "Token expired" — no token yet, and this route requires one (mandatory: true)
 
-TOKEN=$(curl -s localhost:7070/api/health/ping | php -r 'echo json_decode(file_get_contents("php://stdin"), true)["token"];')
+TOKEN=$(curl -s localhost:7070/ap/v1/health/ping | php -r 'echo json_decode(file_get_contents("php://stdin"), true)["token"];')
 # 200 — mandatory: false override; Session::create() issues a token, response() attaches it
 
-curl -i -H "Authorization: Bearer $TOKEN" localhost:7070/api/health
+curl -i -H "Authorization: Bearer $TOKEN" localhost:7070/ap/v1/health
 # 200 now — the token from /ping resolves successfully
 
-curl -i -X POST -H "Authorization: Bearer $TOKEN" localhost:7070/api/health/logout
+curl -i -X POST -H "Authorization: Bearer $TOKEN" localhost:7070/ap/v1/health/logout
 # 200, but with no "token" in the body — Session::logout() dropped it
 
-curl localhost:7070/api/users
-curl localhost:7070/api/users/1
-curl -X POST localhost:7070/api/users \
+curl localhost:7070/ap/v1/users
+curl localhost:7070/ap/v1/users/1
+curl -X POST localhost:7070/ap/v1/users \
   -H 'Content-Type: application/json' -d '{"mail":"test@apipro.com","password":"secret"}'
 # 200, {success:true, ...} — try omitting "mail", or "mail":"not-an-email", to see the 400 Packet
 ```

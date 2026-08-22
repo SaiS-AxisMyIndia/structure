@@ -67,6 +67,7 @@
   .row > div { flex: 1; }
   button { background: var(--accent); color: #06192e; border: none; border-radius: 6px; padding: 9px 18px; font-weight: 600; font-size: 13px; cursor: pointer; margin-top: 16px; }
   button:hover { opacity: .9; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
   .resp { margin-top: 20px; }
   .resp .status-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
   .resp .status { font-family: ui-monospace, monospace; font-size: 13px; }
@@ -305,15 +306,52 @@ function renderFieldInputs(panel, fields, legend, fieldCache, namespace, persist
       class: field.required ? 'field-required' : 'field-optional',
       text: field.required ? '*' : '(optional)',
     }));
-    labelRow.appendChild(el('span', { class: 'field-type', text: field.type }));
+    // A JSON field gets a textarea (real JSON is rarely one line — a
+    // single-line <input> made it unreadable/unwritable past a couple of
+    // keys) and its own beautify button, right in the label row —
+    // button first, then the type tag right after it. `.field-type`'s
+    // own CSS pushes itself flush right via margin-left:auto, which only
+    // works when IT'S the first item claiming that free space; here
+    // beautify is first in this pair, so the auto-margin moves onto it
+    // instead (inline override) and field-type falls back to a plain
+    // 6px gap — otherwise the two would end up pushed apart, not
+    // sitting together. Every other (non-JSON) field is unaffected:
+    // field-type stays the last, only item in the row, default class
+    // behavior untouched.
+    const isJson = field.type === 'JSON';
+    let beautifyBtn = null;
+    if (isJson) {
+      beautifyBtn = el('button', { class: 'icon-btn', title: 'Beautify JSON', text: 'beautify' });
+      beautifyBtn.style.marginLeft = 'auto';
+      labelRow.appendChild(beautifyBtn);
+    }
+    const typeTag = el('span', { class: 'field-type', text: field.type });
+    if (isJson) typeTag.style.marginLeft = '6px';
+    labelRow.appendChild(typeTag);
     wrap.appendChild(labelRow);
 
-    const input = el('input', { type: 'text', placeholder: field.required ? 'required' : 'optional' });
+    const input = isJson
+      ? el('textarea', { placeholder: field.required ? 'required' : 'optional' })
+      : el('input', { type: 'text', placeholder: field.required ? 'required' : 'optional' });
     const cacheKey = namespace + ':' + field.key;
     input.value = fieldCache[cacheKey] || '';
     input.oninput = () => { fieldCache[cacheKey] = input.value; persist(); };
     wrap.appendChild(input);
     panel.appendChild(wrap);
+
+    // Reformats whatever's actually typed, in place — not a read-only
+    // preview like the response body's beautify button, since this is
+    // an editable field. Invalid/incomplete JSON (e.g. still mid-edit)
+    // is left exactly as typed rather than erroring.
+    if (beautifyBtn) {
+      beautifyBtn.onclick = () => {
+        try {
+          input.value = JSON.stringify(JSON.parse(input.value), null, 2);
+          fieldCache[cacheKey] = input.value;
+          persist();
+        } catch (e) { /* not valid JSON (yet) — leave it alone */ }
+      };
+    }
 
     inputs[field.key] = { input, field };
   });
@@ -393,6 +431,30 @@ function flashIcon(btn) {
   const original = btn.textContent;
   btn.textContent = '✓';
   setTimeout(() => { btn.textContent = original; }, 900);
+}
+
+// Wires a "beautify" icon-btn that toggles `pre` between `rawText` as-is
+// and a pretty-printed JSON.stringify(...,null,2) rendering of it —
+// starts showing raw (exactly what came back), click to format, click
+// again to revert. Returns null instead of a button when `rawText` isn't
+// valid JSON at all — there's nothing to beautify, so the caller should
+// just not show a button rather than show one that does nothing.
+function makeBeautifyButton(pre, rawText, title) {
+  let prettyText;
+  try {
+    prettyText = JSON.stringify(JSON.parse(rawText), null, 2);
+  } catch (e) {
+    return null;
+  }
+
+  const btn = el('button', { class: 'icon-btn', title, text: 'beautify' });
+  let showingPretty = false;
+  btn.onclick = () => {
+    showingPretty = !showingPretty;
+    pre.textContent = showingPretty ? prettyText : rawText;
+    btn.classList.toggle('active', showingPretty);
+  };
+  return btn;
 }
 
 function renderForm(route) {
@@ -527,11 +589,18 @@ function renderForm(route) {
   // catch-all input.
   const queryInputs = renderFieldInputs(panel, queryFields, 'Query parameters', fieldCache, 'query', persistFields);
 
+  // Body fields are rendered whenever RouteCompiler actually detected
+  // some — regardless of method — so a GET/DELETE controller that reads
+  // $request->body still shows what it reads (real, present in the
+  // source); the freeform "Body (JSON)" catch-all textarea still only
+  // makes sense for a method that's *supposed* to carry a body, so that
+  // stays POST/PUT/PATCH-only.
+  const methodSupportsBody = ['POST', 'PUT', 'PATCH'].includes(route.method);
   let body = null;
   let bodyInputs = null;
-  if (['POST', 'PUT', 'PATCH'].includes(route.method)) {
+  if (methodSupportsBody || bodyFields.length) {
     bodyInputs = renderFieldInputs(panel, bodyFields, 'Body fields', fieldCache, 'body', persistFields);
-    if (!bodyInputs) {
+    if (!bodyInputs && methodSupportsBody) {
       panel.appendChild(el('label', { text: 'Body (JSON)' }));
       body = el('textarea', { placeholder: '{\n  "mail": "test@apipro.com",\n  "password": "secret"\n}' });
       body.value = fieldCache['body:raw'] || '';
@@ -542,6 +611,20 @@ function renderForm(route) {
 
   const sendBtn = el('button', { text: 'Send' });
   panel.appendChild(sendBtn);
+
+  // A GET/DELETE (or any other method a browser considers body-less)
+  // can never actually carry one — fetch() throws
+  // "Request with GET/HEAD method cannot have body" before the request
+  // even leaves the browser, no matter what's typed in. The field above
+  // still shows what the controller really reads; Send is disabled
+  // instead of letting that throw surface as a confusing error.
+  if (!methodSupportsBody && (bodyInputs || body)) {
+    sendBtn.disabled = true;
+    panel.appendChild(el('p', {
+      class: 'hint',
+      text: route.method + ' requests can’t carry a body in any browser, so Send is disabled here — the field above is shown for reference only (it’s exactly what the controller reads).',
+    }));
+  }
 
   const resp = el('div', { class: 'resp' });
   panel.appendChild(resp);
@@ -610,8 +693,6 @@ function renderForm(route) {
       const res = await fetch(url, init);
       const ms = Math.round(performance.now() - start);
       const text = await res.text();
-      let pretty = text;
-      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (e) {}
 
       resp.innerHTML = '';
 
@@ -631,7 +712,50 @@ function renderForm(route) {
       statusRow.appendChild(icons);
 
       resp.appendChild(statusRow);
-      const pre = el('pre', { text: pretty });
+
+      // Response headers — collapsed by default, same toggle pattern as
+      // the route's own "Description"/"Headers" (request) sections
+      // above. Never CORS-restricted here: every request Tester sends is
+      // same-origin, so res.headers always carries the full set the
+      // server actually sent, not just a "simple response" subset.
+      const headersObj = {};
+      res.headers.forEach((value, key) => { headersObj[key] = value; });
+      const headersRawText = JSON.stringify(headersObj);
+
+      const respHeadersToggle = el('div', { class: 'headers-toggle collapsed' });
+      respHeadersToggle.appendChild(el('span', { class: 'chevron', text: '▾' }));
+      respHeadersToggle.appendChild(el('span', { text: 'Response headers (' + Object.keys(headersObj).length + ')' }));
+      resp.appendChild(respHeadersToggle);
+
+      const respHeadersBody = el('div', { class: 'headers-body collapsed' });
+      const headersIcons = el('div', { class: 'resp-icons' });
+      const headersCopyBtn = el('button', { class: 'icon-btn', title: 'Copy response headers', text: 'copy' });
+      headersIcons.appendChild(headersCopyBtn);
+      respHeadersBody.appendChild(headersIcons);
+
+      const headersPre = el('pre', { text: headersRawText });
+      if (isWrapEnabled()) headersPre.classList.add('wrap');
+      respHeadersBody.appendChild(headersPre);
+      resp.appendChild(respHeadersBody);
+
+      // A plain object built from res.headers is always valid JSON, so
+      // this never comes back null the way the body's beautify button
+      // (below) can for a non-JSON response.
+      const headersBeautifyBtn = makeBeautifyButton(headersPre, headersRawText, 'Beautify response headers');
+      if (headersBeautifyBtn) headersIcons.appendChild(headersBeautifyBtn);
+
+      respHeadersToggle.onclick = () => {
+        respHeadersToggle.classList.toggle('collapsed');
+        respHeadersBody.classList.toggle('collapsed');
+      };
+      headersCopyBtn.onclick = async () => {
+        if (await copyToClipboard(headersPre.textContent)) flashIcon(headersCopyBtn);
+      };
+
+      // The response body itself starts exactly as the server sent it
+      // (raw) — Beautify (added below, only when it's actually JSON)
+      // pretty-prints it on demand instead of always silently reformatting.
+      const pre = el('pre', { text: text });
       // Wrap is a single app-wide flag — every response starts in
       // whatever state it was last left in, on any route.
       if (isWrapEnabled()) {
@@ -640,7 +764,13 @@ function renderForm(route) {
       }
       resp.appendChild(pre);
 
-      copyBtn.onclick = async () => { if (await copyToClipboard(pretty)) flashIcon(copyBtn); };
+      const beautifyBtn = makeBeautifyButton(pre, text, 'Beautify response body');
+      if (beautifyBtn) icons.appendChild(beautifyBtn);
+
+      // Copies whatever's currently on screen — raw or beautified,
+      // whichever the toggle above is showing right now — not a fixed
+      // pretty/raw choice made once up front.
+      copyBtn.onclick = async () => { if (await copyToClipboard(pre.textContent)) flashIcon(copyBtn); };
       curlBtn.onclick = async () => {
         const curl = buildCurlCommand(route.method, location.origin + url, headers, init.body || null);
         if (await copyToClipboard(curl)) flashIcon(curlBtn);
@@ -649,6 +779,7 @@ function renderForm(route) {
         const enabled = !isWrapEnabled();
         setWrapEnabled(enabled);
         pre.classList.toggle('wrap', enabled);
+        headersPre.classList.toggle('wrap', enabled);
         wrapBtn.classList.toggle('active', enabled);
       };
     } catch (e) {

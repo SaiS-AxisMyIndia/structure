@@ -10,7 +10,7 @@ namespace App\Services;
  * storage backing it), so a post added via the page's form is visible
  * immediately (the POST response hands it straight back to the page's
  * own JS), but won't survive a reload. Swap this for a real
- * ProSql\Repository once you want posts to actually persist.
+ * ProSql\ProRepo once you want posts to actually persist.
  */
 class PostService
 {

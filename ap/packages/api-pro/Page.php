@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace ApiPro;
 
+use ReflectionMethod;
+use ReflectionNamedType;
+use ReflectionUnionType;
 use RuntimeException;
 
 /**
@@ -137,6 +140,64 @@ class Page
         $this->props = [...$this->props, ...$data];
 
         return $this;
+    }
+
+    /**
+     * Reads back whatever props() has accumulated so far — e.g. for a
+     * dev tool (AppViewer) that wants to show what a page was actually
+     * rendered with, without re-parsing its rendered HTML output.
+     *
+     * @return array<string, mixed>
+     */
+    public function getProps(): array
+    {
+        return $this->props;
+    }
+
+    /**
+     * The view name set via view(), or null if this Page is using the
+     * template builder (title()/body()/...) instead — e.g. for AppViewer
+     * to build a brand-new Page with the same view but different props,
+     * without needing to know in advance which view a given controller
+     * action happens to use.
+     */
+    public function getView(): ?string
+    {
+        return $this->view;
+    }
+
+    /**
+     * Whether $controllerClass::$action declares Page (or Page as one
+     * member of a union return type) as its return type — checked via
+     * Reflection, since RouteCompiler's own compiled route table
+     * carries no return-type info at all (Kernel::handle() only ever
+     * needs the actual runtime value, never a static declaration).
+     *
+     * Shared, generic detection for any dev tool that needs to tell a
+     * page-rendering route apart from a JSON/API one — e.g. Tester
+     * excludes these from its request-testing UI, AppViewer includes
+     * only these. Deliberately return-type-based only: which
+     * namespace/directory a project happens to keep its page
+     * controllers in is an app-specific convention, not something this
+     * framework class should know about.
+     */
+    public static function isReturnedBy(string $controllerClass, string $action): bool
+    {
+        $type = (new ReflectionMethod($controllerClass, $action))->getReturnType();
+
+        if ($type instanceof ReflectionNamedType) {
+            return $type->getName() === self::class;
+        }
+
+        if ($type instanceof ReflectionUnionType) {
+            foreach ($type->getTypes() as $member) {
+                if ($member instanceof ReflectionNamedType && $member->getName() === self::class) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function render(): string

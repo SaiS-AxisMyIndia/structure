@@ -29,6 +29,12 @@ class Connection
         return $this->pdo ??= $this->connect();
     }
 
+    /** The configured database name — e.g. for a Schema\SchemaInspector query against information_schema, which needs it explicitly rather than relying on "whatever database this connection defaults to". */
+    public function database(): string
+    {
+        return $this->config['database'];
+    }
+
     private function connect(): PDO
     {
         $charset = $this->config['charset'] ?? 'utf8mb4';

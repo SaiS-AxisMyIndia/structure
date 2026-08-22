@@ -5,11 +5,13 @@ use ApiPro\Page;
 /**
  * api-pro's showcase homepage — a real website (nav, hero, feature grid,
  * quick start, footer), not a bare demo page. $posts/$version arrived via
- * (new Page())->props([...]) in HomeController::home() — both are real
+ * (new Page())->props([...]) in SiteController::home() — both are real
  * local variables in this file's scope, nothing more. The "Live demo"
  * section at the bottom is the one part that's actually interactive: its
- * JS posts to the real POST /api/api-pro/posts endpoint and appends
- * whatever comes back — proof this is a working framework, not a mockup.
+ * JS posts to the real POST /ap/v1/api-pro/posts endpoint (HomeController,
+ * which stayed put — see its own docblock — while every actual page
+ * moved to SiteController) and appends whatever comes back — proof this
+ * is a working framework, not a mockup.
  *
  * @var list<array{id: int, text: string, createdAt: string}> $posts
  * @var string $version
@@ -106,8 +108,11 @@ use ApiPro\Page;
 <header class="site-header">
   <div class="brand"><span class="dot">●</span> api-pro <span class="version">v<?= Page::html($version) ?></span></div>
   <nav class="site-nav">
-    <a href="/api/api-pro" class="current">Home</a>
-    <a href="/api/api-pro/docs">Docs</a>
+    <a href="/ap/v1/site" class="current">Home</a>
+    <a href="/ap/v1/site/docs">Docs</a>
+    <a href="/ap/v1/site/releases">Releases</a>
+    <a href="/ap/v1/site/about">About</a>
+    <a href="/ap/v1/site/contact">Contact</a>
     <a href="/tester">Tester</a>
     <a href="/tester" class="button">Try it live</a>
   </nav>
@@ -124,7 +129,7 @@ use ApiPro\Page;
       just PHP files and one CLI.
     </p>
     <div class="cta">
-      <a class="primary" href="/api/api-pro/docs">Read the docs</a>
+      <a class="primary" href="/ap/v1/site/docs">Read the docs</a>
       <a class="secondary" href="/tester">Open the API explorer</a>
     </div>
   </section>
@@ -136,12 +141,12 @@ use ApiPro\Page;
       <div class="feature"><div class="icon">#[]</div><h3>Attribute routing</h3><p><code>#[RestController]</code>, <code>#[GetMapping]</code>/<code>#[PostMapping]</code>/etc. compile once into a plain, cacheable route table — no runtime Reflection per request.</p></div>
       <div class="feature"><div class="icon">DI</div><h3>Constructor injection</h3><p>A container autowires your controllers' and services' constructors by type, the same way Spring wires a <code>@Service</code> into a <code>@RestController</code>.</p></div>
       <div class="feature"><div class="icon">◐→</div><h3>Middleware pipeline</h3><p><code>#[Middleware(...)]</code> wraps a request in an onion model — a method-level declaration overrides the same class at the class level.</p></div>
-      <div class="feature"><div class="icon">{ }</div><h3>Packet responses</h3><p>Every JSON response is the same <code>{success, message, data}</code> shape. Throw <code>PacketFailed</code> anywhere to fail with a real status — no <code>Response::json()</code> needed.</p></div>
+      <div class="feature"><div class="icon">{ }</div><h3>Packet responses</h3><p>Every JSON response is the same <code>{success, message, data}</code> shape (HTTP 200 unless you ask otherwise). Throw <code>PacketFailed</code> anywhere to fail, with an optional real status and an optional app-level <code>error_code</code> — no <code>Response::json()</code> needed.</p></div>
       <div class="feature"><div class="icon">JWT</div><h3>Stateless sessions</h3><p>Signed, optionally encrypted tokens — no server-side session store. <code>Session::create()</code>/<code>resolve()</code>/<code>logout()</code>, done.</p></div>
       <div class="feature"><div class="icon">✓</div><h3>Typed input validation</h3><p><code>InputBag</code>'s <code>getString()</code>/<code>getInt()</code>/<code>getMail()</code>/etc. validate and coerce query/body/path params, 400-ing automatically on a bad value.</p></div>
-      <div class="feature"><div class="icon">DB</div><h3>ProSql</h3><p>A lazy PDO wrapper, a fluent parameter-bound query builder, and a base <code>Repository</code> for straightforward CRUD.</p></div>
+      <div class="feature"><div class="icon">DB</div><h3>ProSql</h3><p>A lazy PDO wrapper, a fluent parameter-bound query builder, and a base <code>ProRepo</code> for straightforward CRUD.</p></div>
       <div class="feature"><div class="icon">▤</div><h3>Tester</h3><p>A Swagger-like explorer at <code>/tester</code> — every route, its real fields (required/optional, typed), generated straight from your source.</p></div>
-      <div class="feature"><div class="icon">$_</div><h3><code>apc</code> CLI</h3><p><code>apc start</code>, <code>apc build</code>, <code>apc install</code>, <code>apc module</code> — build, run, and manage modules from one command.</p></div>
+      <div class="feature"><div class="icon">$_</div><h3><code>apc</code> CLI</h3><p><code>apc start</code>, <code>apc build</code>, <code>apc clean</code>, <code>apc install</code> — build, run, and manage modules from one command.</p></div>
     </div>
   </section>
 
@@ -154,7 +159,7 @@ use ApiPro\Page;
         <p>A controller declares its own prefix and each action's HTTP method + path as attributes, right on the method. The framework compiles that into a route table once — nothing here runs via Reflection on every request.</p>
         <ol>
           <li>Return a plain array/scalar — it's wrapped in a success <code>Packet</code> automatically.</li>
-          <li><code>throw new PacketFailed('message', 404)</code> to fail with a real status, from anywhere.</li>
+          <li><code>throw new PacketFailed('message', httpStatus: 404)</code> to fail from anywhere, with a real status if you want one.</li>
           <li>Add the class to <code>runner/controllers.php</code> and it's live.</li>
         </ol>
       </div>
@@ -172,7 +177,7 @@ use ApiPro\Page;
         $user = $this-&gt;userService-&gt;find($id);
 
         <span class="k">if</span> ($user === null) {
-            <span class="k">throw new</span> PacketFailed(<span class="s">'User not found'</span>, 404);
+            <span class="k">throw new</span> PacketFailed(<span class="s">'User not found'</span>, httpStatus: 404);
         }
 
         <span class="k">return</span> $user;
@@ -183,7 +188,7 @@ use ApiPro\Page;
 
   <section id="demo">
     <h2>See it running</h2>
-    <p class="section-sub">Not a screenshot — this posts to the real <code>POST /api/api-pro/posts</code> endpoint below and renders whatever it sends back.</p>
+    <p class="section-sub">Not a screenshot — this posts to the real <code>POST /ap/v1/api-pro/posts</code> endpoint below and renders whatever it sends back.</p>
     <div class="demo-panel">
       <span class="demo-tag">ApiPro\Page::view('HomePage') + Packet</span>
       <form id="post-form">
@@ -205,7 +210,7 @@ use ApiPro\Page;
 
 <footer class="site-footer">
   <span>api-pro v<?= Page::html($version) ?> — built with itself.</span>
-  <span><a href="/api/api-pro/docs">Docs</a> · <a href="/tester">Tester</a></span>
+  <span><a href="/ap/v1/site/docs">Docs</a> · <a href="/ap/v1/site/releases">Releases</a> · <a href="/ap/v1/site/about">About</a> · <a href="/ap/v1/site/contact">Contact</a> · <a href="/tester">Tester</a></span>
 </footer>
 
 <script>
@@ -221,7 +226,7 @@ use ApiPro\Page;
     if (!text) return;
 
     try {
-      const res = await fetch('/api/api-pro/posts', {
+      const res = await fetch('/ap/v1/api-pro/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),

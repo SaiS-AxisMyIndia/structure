@@ -7,12 +7,18 @@ declare(strict_types=1);
 // `artisan` or Spring Boot's actuator/admin tooling: operational commands
 // that sit next to the app, not behind an HTTP route.
 //
-//   php apc -v                       app + every package's version
-//   php apc start [host:port]        clean + rebuild, then start PHP's built-in server (default 127.0.0.1:7070)
-//   php apc build                    force-compile + cache the route table now (deploy-time build step)
-//   php apc build -c | --clean       delete the cached route table
-//   php apc install [version]        validate every module's resolved version
-//   php apc module <name> [version]  show/validate one module's resolved info
+//   php apc -v                            app + every package's version
+//   php apc start [host:port]             clean + rebuild, then start PHP's built-in server (default host 127.0.0.1, port from PORT in .env.<stage>, else 7070)
+//   php apc stop                          stop the ONE server a matching `apc start` began, wherever it's running
+//   php apc build                         regenerate runner/ in place, force-compile + cache the route table (deploy-time build step)
+//   php apc build -c | --clean            delete the whole runner/ folder first, then build as above
+//   php apc clean                         delete the whole runner/ folder (and route cache) — no rebuild
+//   php apc ... --<stage>                 --local, --production, or --staging: which .env.<stage> to boot from (else real APP_ENV env var, else 'local')
+//   php apc ... --<service>               any OTHER --name: which named microservice to boot as (.env.<service>.<stage-abbrev>)
+//   php apc start [--<stage>] --<svc1> --<svc2> ...   one PHP server PER named service, each on its own PORT, running together until Ctrl+C
+//   php apc stop  [--<stage>] --<svc1> --<svc2> ...   stop several named services at once
+//   php apc install [version]             no module (or `api-pro`): validate every module's resolved version
+//   php apc install <name> [version]      any other module: show/validate its own resolved info
 //
 // Runs the exact same Runner::boot() as an HTTP request would (module
 // resolution, route compiling/caching rules included) — this is not a
@@ -23,8 +29,71 @@ $basePath = __DIR__;
 require_once "$basePath/vendor/autoload.php";
 
 use ApiPro\Cli\Application;
+use ApiPro\Cli\MultiStartCommand;
+use ApiPro\Cli\MultiStopCommand;
 use ApiPro\Runner;
 
-Runner::boot($basePath);
+// Every --xxx flag is either a STAGE (the closed three-name set in
+// Runner::STAGES — local/production/staging) or a SERVICE name
+// (anything else) — that split is what lets `apc start --production
+// --auth --billing` mean "boot auth and billing, both as production",
+// not three unrelated env names. Resolved here, before the very first
+// Runner::boot(), since env vars loaded from a .env file are locked in
+// for the rest of the process (see Runner::loadEnvFile()'s
+// $_ENV[$key] ??= $value) — deciding this any later (e.g. inside
+// BuildCommand, after boot() already ran once) would be too late to
+// have any effect. -c/--clean is the one other flag anything here
+// recognizes — excluded so it's never mistaken for a stage or service.
+$cliArgs = array_slice($argv, 1);
+$stageFlags = [];
+$serviceFlags = [];
 
-exit((new Application($basePath))->run(array_slice($argv, 1)));
+foreach ($cliArgs as $arg) {
+    if (!str_starts_with($arg, '--') || $arg === '--clean') {
+        continue;
+    }
+
+    $name = substr($arg, 2);
+
+    if (in_array($name, Runner::STAGES, true)) {
+        $stageFlags[] = $name;
+    } else {
+        $serviceFlags[] = $name;
+    }
+}
+
+if (count($stageFlags) > 1) {
+    fwrite(STDERR, 'Only one stage flag at a time (--' . implode(', --', Runner::STAGES) . ").\n");
+
+    exit(1);
+}
+
+$stage = $stageFlags[0] ?? null;
+
+// More than one --<service> flag only makes sense for `apc start`/
+// `apc stop` — running (or stopping) several services, each fully
+// independent (own .env.<service>.<stage>, own PORT, own process),
+// together. Every other command boots exactly once, so more than one
+// service name for it is just a mistake, not a request for N runs.
+if (count($serviceFlags) > 1) {
+    $first = $cliArgs[0] ?? null;
+
+    if (!in_array($first, ['start', 'stop'], true)) {
+        fwrite(STDERR, "Multiple --<service> flags are only supported by `apc start`/`apc stop`.\n");
+
+        exit(1);
+    }
+
+    // Deliberately skips Runner::boot() here — this process is only an
+    // orchestrator; each spawned service boots Runner itself, in its
+    // own process, against its own .env file (see MultiStartCommand).
+    // `stop` needs no boot at all — it only computes pidfile keys.
+    $resolvedStage = $stage ?? getenv('APP_ENV') ?: 'local';
+    $command = $first === 'start' ? new MultiStartCommand($basePath) : new MultiStopCommand($basePath);
+
+    exit($command->run($resolvedStage, $serviceFlags));
+}
+
+Runner::boot($basePath, $stage, $serviceFlags[0] ?? null);
+
+exit((new Application($basePath))->run($cliArgs));

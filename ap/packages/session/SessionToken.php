@@ -18,6 +18,12 @@ namespace Session;
  * wire (it's a diversifier, not a secret by itself) and round-trips
  * through decode() so re-encoding the same token reuses it rather than
  * silently rotating on every response().
+ *
+ * `kind` tells an access token apart from a refresh token — same wire
+ * format, same codec, but Session::resolve()/resolveRefresh() each only
+ * accept their own kind, so a leaked/misused refresh token can't be
+ * replayed as a bearer token (or vice versa). Defaults to 'access' so a
+ * token encoded before this field existed still decodes as one.
  */
 final class SessionToken
 {
@@ -29,6 +35,7 @@ final class SessionToken
         /** @var array<string, mixed> */
         public array $data = [],
         public readonly ?string $encKey = null,
+        public readonly string $kind = 'access',
     ) {
     }
 

@@ -1,6 +1,15 @@
 /vendor/
 composer.lock
 .env
+.env.local
+.env.production
+.env.staging
+.env.*.dev
+.env.*.prod
+.env.*.stag
 storage/logs/*
 !storage/logs/.gitkeep
+storage/pids/*
+!storage/pids/.gitkeep
 storage/routes.cache.php
+/prologs.log

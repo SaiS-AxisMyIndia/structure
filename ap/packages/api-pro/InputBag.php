@@ -223,7 +223,7 @@ final class InputBag implements ArrayAccess, Countable, IteratorAggregate
 
     private function fail(string $message): never
     {
-        throw new PacketFailed($message, 400);
+        throw new PacketFailed($message, 0, 400);
     }
 
     public function offsetExists(mixed $offset): bool

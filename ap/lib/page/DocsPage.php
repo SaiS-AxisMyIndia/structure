@@ -5,7 +5,7 @@ use ApiPro\Page;
 /**
  * api-pro's documentation — a real docs site (sticky sidebar nav +
  * sections), one level under the showcase homepage. $version arrived via
- * (new Page())->props(['version' => ...]) in HomeController::docs() — a
+ * (new Page())->props(['version' => ...]) in SiteController::docs() — a
  * real local variable in this file's scope, nothing more.
  *
  * @var string $version
@@ -81,8 +81,11 @@ use ApiPro\Page;
 <header class="site-header">
   <div class="brand"><span class="dot">●</span> api-pro <span class="version">v<?= Page::html($version) ?></span></div>
   <nav class="site-nav">
-    <a href="/api/api-pro">Home</a>
-    <a href="/api/api-pro/docs" class="current">Docs</a>
+    <a href="/ap/v1/site">Home</a>
+    <a href="/ap/v1/site/docs" class="current">Docs</a>
+    <a href="/ap/v1/site/releases">Releases</a>
+    <a href="/ap/v1/site/about">About</a>
+    <a href="/ap/v1/site/contact">Contact</a>
     <a href="/tester">Tester</a>
     <a href="/tester" class="button">Try it live</a>
   </nav>
@@ -139,7 +142,7 @@ use ApiPro\Page;
 │   └── page/
 ├── packages/              </span># the framework itself, as packages<span class="c">
 │   ├── api-pro/           </span># core: Kernel, Router, Container, Packet...<span class="c">
-│   ├── pro-sql/           </span># QueryBuilder, Repository<span class="c">
+│   ├── pro-sql/           </span># QueryBuilder, ProRepo<span class="c">
 │   ├── session/           </span># stateless JWT sessions<span class="c">
 │   └── tester/             </span># the API explorer at /tester<span class="c">
 └── src/                   </span># YOUR application<span class="c">
@@ -153,11 +156,14 @@ use ApiPro\Page;
       <h2>The <code>apc</code> CLI</h2>
       <table class="doc-table">
         <tr><th>Command</th><th>What it does</th></tr>
-        <tr><td><code>apc -v</code></td><td>Print the app's name/version.</td></tr>
-        <tr><td><code>apc start [host:port]</code></td><td>Clean + rebuild, then start PHP's built-in server (default <code>127.0.0.1:7070</code>).</td></tr>
-        <tr><td><code>apc build [--clean]</code></td><td>Warm (or clear) the compiled route cache.</td></tr>
-        <tr><td><code>apc install [version]</code></td><td>Resolve every module in <code>app.php</code> and verify the app boots.</td></tr>
-        <tr><td><code>apc module &lt;name&gt; [version]</code></td><td>Add/update a module reference.</td></tr>
+        <tr><td><code>apc -v</code></td><td>Print the app's name/version, plus every <code>packages/*</code> package's.</td></tr>
+        <tr><td><code>apc start [host:port]</code></td><td>Clean + rebuild, then start PHP's built-in server (default <code>127.0.0.1:7070</code>) — prints the <code>/tester</code>/<code>/app-viewer</code> URL too, whichever's enabled.</td></tr>
+        <tr><td><code>apc build</code></td><td>Regenerate <code>runner/</code> in place, force-compile + cache the route table, run every module's build step.</td></tr>
+        <tr><td><code>apc build --clean</code></td><td>Delete the whole <code>runner/</code> folder first, then build as above.</td></tr>
+        <tr><td><code>apc clean</code></td><td>Delete the whole <code>runner/</code> folder (and the route cache) — no rebuild.</td></tr>
+        <tr><td><code>apc ... --local, --production</code></td><td>Which <code>.env.&lt;env&gt;</code> to boot from (else a real <code>APP_ENV</code> env var, else <code>local</code>) — works with any command.</td></tr>
+        <tr><td><code>apc install [version]</code></td><td>No module (or <code>api-pro</code>): resolve every module in <code>app.php</code> and verify the app boots.</td></tr>
+        <tr><td><code>apc install &lt;module&gt; [version]</code></td><td>Any other module: show its resolved version and whether/how <code>app.php</code> references it.</td></tr>
       </table>
       <p class="muted">Route compilation only ever caches to disk outside <code>env: local</code> — in local development every request recompiles fresh, so editing a controller takes effect immediately.</p>
     </section>
@@ -170,17 +176,17 @@ use ApiPro\Page;
 {
     <span class="k">public function</span> __construct(<span class="k">private readonly</span> UserService $userService) {}
 
-    <span class="c">#[GetMapping]</span>                 <span class="c">// GET /api/users</span>
+    <span class="c">#[GetMapping]</span>                 <span class="c">// GET /ap/v1/users</span>
     <span class="k">public function</span> <span class="f">index</span>(Request $request): array
     {
         <span class="k">return</span> $this-&gt;userService-&gt;all();
     }
 
-    <span class="c">#[GetMapping('/{id}')]</span>        <span class="c">// GET /api/users/{id}</span>
+    <span class="c">#[GetMapping('/{id}')]</span>        <span class="c">// GET /ap/v1/users/{id}</span>
     <span class="k">public function</span> <span class="f">show</span>(Request $request): array
     {
         $id = $request->params-&gt;getInt(<span class="s">'id'</span>);
-        <span class="k">return</span> $this-&gt;userService-&gt;find($id) ?? <span class="k">throw new</span> PacketFailed(<span class="s">'User not found'</span>, 404);
+        <span class="k">return</span> $this-&gt;userService-&gt;find($id) ?? <span class="k">throw new</span> PacketFailed(<span class="s">'User not found'</span>, httpStatus: 404);
     }
 }</pre>
       <p>Every attribute is read once, via Reflection, by <code>RouteCompiler</code> — never per-request. The result is a plain, cacheable route table; <code>Router::dispatch()</code> just matches a path against it and calls the method directly, no Reflection at dispatch time.</p>
@@ -214,26 +220,32 @@ $id       = $request->params->getInt(<span class="s">'id'</span>);              
 
     <section class="doc" id="packet">
       <h2>Packet responses</h2>
-      <p>Every JSON response — success or failure — is the same shape: <code>{ success, message, data }</code>. A controller returning a plain array/scalar gets it wrapped in a success <code>Packet</code> automatically; nothing extra to write.</p>
+      <p>Every JSON response — success or failure — is the same shape: <code>{ success, message, data }</code>. A controller returning a plain array/scalar gets it wrapped in a success <code>Packet</code> automatically; nothing extra to write. <code>data</code>/<code>error_code</code> only appear when they're not "empty" (PHP's loose sense — <code>null</code>/<code>0</code>/<code>''</code>/<code>[]</code>/<code>false</code> all count) — a bare message-only response renders as just <code>{ success, message }</code>.</p>
       <pre class="code-block"><span class="k">return</span> $user;  <span class="c">// -&gt; { "success": true, "message": "Success", "data": {...} }</span></pre>
-      <p><strong><code>PacketSuccess</code></strong> and <strong><code>PacketFailed</code></strong> are the two shapes you write explicitly:</p>
-      <pre class="code-block"><span class="k">return new</span> PacketSuccess($data, <span class="s">'Validated'</span>);        <span class="c">// custom message</span>
-<span class="k">throw new</span> PacketFailed(<span class="s">'User not found'</span>, 404);   <span class="c">// any status, from anywhere</span></pre>
+      <p><strong><code>PacketSuccess</code></strong> and <strong><code>PacketFailed</code></strong> are the two shapes you write explicitly — message first on both, then only the field that's actually theirs. <code>data</code> is a success-only concept, <code>error_code</code> a failure-only one, and each constructor enforces it by simply not accepting the other's field:</p>
+      <pre class="code-block">PacketSuccess($message = <span class="s">'Success'</span>, $httpStatus = 200, $data = <span class="k">null</span>)
+PacketFailed($message = <span class="s">'Failed'</span>,   $errorCode = 0,  $httpStatus = 200)
+
+<span class="k">return new</span> PacketSuccess(<span class="s">'Validated'</span>, data: $data);         <span class="c">// custom message + data</span>
+<span class="k">throw new</span> PacketFailed(<span class="s">'User not found'</span>, httpStatus: 404);    <span class="c">// a real 404, from anywhere</span>
+<span class="k">throw new</span> PacketFailed(<span class="s">'Rate limited'</span>, errorCode: 7, httpStatus: 429);</pre>
       <p><code>PacketFailed</code> is a real exception — throw it from a controller, a middleware, or <code>InputBag</code>'s own validation, and <code>Kernel::handle()</code> catches it in exactly one place and converts it. No <code>Response::json()</code> call needed anywhere.</p>
+      <p><code>Response</code> and <code>Packet</code> are related but separate concerns: every <code>Packet</code> carries an <code>httpStatus()</code> — <strong>200</strong> by default, for success <em>and</em> failure alike — that <code>Kernel::handle()</code> reads and hands straight to <code>Response::json()</code>. Leave it alone and every response is 200 regardless of <code>success</code>; pass <code>httpStatus: 404</code> (or any other real status) when you actually want the wire-level status to reflect the result. <code>errorCode</code> is unrelated and purely body-level — it appears as <code>error_code</code> in the JSON when set to something, for a client that wants to react to specific failures without string-matching <code>message</code> — and never affects the HTTP status either way. It's also exclusively <code>PacketFailed</code>'s field, the same way <code>data</code> is exclusively <code>PacketSuccess</code>'s — <code>Packet::success()</code>/<code>failed()</code> each clear the other one, so a body never carries both.</p>
     </section>
 
     <section class="doc" id="session">
       <h2>Sessions (JWT)</h2>
-      <p>A stateless, signed token — not native <code>$_SESSION</code>. <code>Session::create($id, $data)</code> issues one; <code>SessionMiddleware</code> resolves the incoming bearer token before your controller runs and re-attaches a (possibly re-encoded) one to the response afterward via <code>Session::response()</code>.</p>
+      <p>A stateless, signed token — not native <code>$_SESSION</code>. <code>SessionMiddleware</code> resolves the incoming bearer token before your controller runs so the request is authenticated, but that alone puts nothing in the response. Only <code>Session::create($id, $data)</code> (an access token) or <code>Session::createRefresh($id, $data)</code> (a refresh token) cause <code>Session::response()</code> to attach anything — <code>token</code> / <code>refresh_token</code> respectively — which is why only login and <code>/auth/refresh</code> ever hand tokens back; every other endpoint just authenticates silently.</p>
       <pre class="code-block">$this->session->create((string) $user[<span class="s">'id'</span>], $user);
+$this->session->createRefresh((string) $user[<span class="s">'id'</span>]);
 <span class="k">return</span> [<span class="s">'status'</span> =&gt; <span class="s">'LOGGED_IN'</span>, <span class="s">'user'</span> =&gt; $user];
-<span class="c">// -&gt; response carries a "token" field automatically</span></pre>
-      <p><code>mandatory: true</code> (the default) rejects with a 401 before the controller ever runs if no valid token came in. Set config <code>enc: true</code> to encrypt the token's data payload; bump <code>SESSION_VERSION</code> to invalidate every outstanding token at once.</p>
+<span class="c">// -&gt; response carries "token" and "refresh_token" fields automatically</span></pre>
+      <p><code>mandatory: true</code> (the default) rejects with a 401 before the controller ever runs if no valid token came in. Set config <code>enc: true</code> to encrypt the token's data payload; bump <code>SESSION_VERSION</code> to invalidate every outstanding token at once. A refresh token can't be used as a bearer token (or vice versa) — each carries a <code>kind</code> claim that <code>resolve()</code>/<code>resolveRefresh()</code> check independently.</p>
     </section>
 
     <section class="doc" id="prosql">
       <h2>ProSql</h2>
-      <p>A lazy PDO connection, a fluent, parameter-bound query builder, and a base <code>Repository</code> for straightforward CRUD — configured once via <code>runner/prosql.php</code>, read through <code>Runner::get('prosql')</code>.</p>
+      <p>A lazy PDO connection, a fluent, parameter-bound query builder, and a base <code>ProRepo</code> for straightforward CRUD — configured once via <code>runner/prosql.php</code>, read through <code>Runner::get('prosql')</code>.</p>
       <pre class="code-block">$rows = (<span class="k">new</span> QueryBuilder($connection))
     -&gt;table(<span class="s">'users'</span>)
     -&gt;where(<span class="s">'active'</span>, <span class="s">'='</span>, <span class="k">true</span>)

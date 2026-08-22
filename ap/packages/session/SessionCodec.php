@@ -32,6 +32,7 @@ final class SessionCodec
     {
         $payload = [
             'id' => $token->id,
+            'kind' => $token->kind,
             'created_at' => $token->createdAt,
             'expire_at' => $token->expireAt,
             'version' => $token->version,
@@ -115,6 +116,9 @@ final class SessionCodec
             version: (int) $payload['version'],
             data: $data,
             encKey: $encKey,
+            // Absent on a token encoded before `kind` existed — treat that
+            // as 'access', same as this field's own constructor default.
+            kind: is_string($payload['kind'] ?? null) ? $payload['kind'] : 'access',
         );
     }
 

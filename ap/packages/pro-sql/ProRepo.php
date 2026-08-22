@@ -10,7 +10,7 @@ namespace ProSql;
  * findAll/find/create/update/delete for free. Override or add methods for
  * anything more specific.
  */
-abstract class Repository
+abstract class ProRepo
 {
     protected string $table;
     protected string $primaryKey = 'id';

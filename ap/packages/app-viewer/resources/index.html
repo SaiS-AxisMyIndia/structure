@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Viewer</title>
+<style>
+  :root {
+    --bg: #0f1720; --panel: #182430; --panel-2: #1e2c3a; --border: #2b3a4a;
+    --text: #e6edf3; --muted: #8b9bab; --accent: #4da3ff; --get: #2f9e5b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 18px; margin: 0 0 2px; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 65px); }
+  .list { border-right: 1px solid var(--border); overflow-y: auto; padding: 8px; }
+  .empty { color: var(--muted); }
+  .group { margin-bottom: 4px; }
+  .group-header { display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; user-select: none; }
+  .group-header:hover { background: var(--panel-2); }
+  .group-header .chevron { font-size: 10px; color: var(--muted); transition: transform .12s ease; display: inline-block; }
+  .group-header.collapsed .chevron { transform: rotate(-90deg); }
+  .group-count { color: var(--muted); font-size: 11px; font-weight: 400; margin-left: auto; }
+  .group-routes { padding-left: 6px; }
+  .group-routes.collapsed { display: none; }
+  .route { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 6px; cursor: pointer; margin-bottom: 2px; }
+  .route:hover { background: var(--panel-2); }
+  .route.active { background: var(--panel-2); outline: 1px solid var(--accent); }
+  .method { font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 4px; color: #fff; background: var(--get); min-width: 40px; text-align: center; }
+  .path { font-size: 13px; font-family: ui-monospace, monospace; word-break: break-all; }
+  .badge { font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; margin-left: auto; }
+  .main { padding: 24px; overflow-y: auto; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+  .panel-header h2 { margin: 0; font-family: ui-monospace, monospace; font-size: 16px; }
+  .mw { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .comment-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .comment-toggle .chevron { font-size: 10px; transition: transform .12s ease; display: inline-block; }
+  .comment-toggle.collapsed .chevron { transform: rotate(-90deg); }
+  .comment { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin-bottom: 16px; }
+  .comment.collapsed { display: none; }
+  .icon-btn { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 12px; font-family: ui-monospace, monospace; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+  .icon-btn.active { background: var(--accent); color: #06192e; border-color: var(--accent); }
+  .props-panel { margin: 0 0 16px; }
+  .props-panel.hidden { display: none; }
+  .props-editor { display: block; width: 100%; height: 220px; background: #0a1119; border: 1px solid var(--border); border-radius: 6px; padding: 14px; font-size: 12px; font-family: ui-monospace, monospace; color: var(--text); resize: vertical; margin-bottom: 8px; }
+  .props-editor:focus { outline: none; border-color: var(--accent); }
+  .props-icons { display: flex; align-items: center; gap: 8px; }
+  .props-status { color: var(--muted); font-size: 12px; }
+  .frame-wrap iframe { width: 100%; height: calc(100vh - 280px); min-height: 400px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>App Viewer</h1>
+  <span class="sub">served at /app-viewer — renders your real Page-returning routes live, same-origin</span>
+</header>
+
+<div class="layout">
+  <div class="list" id="list"><p class="empty" style="padding:12px;">Loading pages…</p></div>
+  <div class="main" id="main"><p class="empty">Pick a page on the left.</p></div>
+</div>
+
+<script>
+let routes = [];
+let activeKey = null;
+const collapsedGroups = new Set();
+
+function el(tag, attrs = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') node.className = v;
+    else if (k === 'text') node.textContent = v;
+    else node.setAttribute(k, v);
+  }
+  for (const c of children) node.appendChild(c);
+  return node;
+}
+
+function routeKey(route) {
+  return route.method + ' ' + route.path;
+}
+
+// Same grouping idea as Tester's list — one collapsible group per
+// controller, alphabetical, each holding that controller's own routes.
+function groupByController(list) {
+  const groups = new Map();
+  for (const route of list) {
+    const key = route.controller || '(unknown)';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(route);
+  }
+  return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+async function loadRoutes() {
+  const res = await fetch('/app-viewer/pages');
+  const body = await res.json();
+  routes = (body.data || []).sort((a, b) => a.path.localeCompare(b.path));
+
+  // Every group starts collapsed on first load, same as Tester.
+  groupByController(routes).forEach(([controller]) => collapsedGroups.add(controller));
+
+  renderList();
+}
+
+function renderList() {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+
+  if (!routes.length) {
+    list.innerHTML = '<p class="empty" style="padding:12px;">No Page-returning routes found — nothing in this app currently declares `: Page` as a return type.</p>';
+    return;
+  }
+
+  groupByController(routes).forEach(([controller, groupRoutes]) => {
+    const isCollapsed = collapsedGroups.has(controller);
+    const group = el('div', { class: 'group' });
+
+    const header = el('div', { class: 'group-header' + (isCollapsed ? ' collapsed' : '') });
+    header.appendChild(el('span', { class: 'chevron', text: '▾' }));
+    header.appendChild(el('span', { text: controller }));
+    header.appendChild(el('span', { class: 'group-count', text: String(groupRoutes.length) }));
+    header.onclick = () => {
+      if (collapsedGroups.has(controller)) collapsedGroups.delete(controller);
+      else collapsedGroups.add(controller);
+      renderList();
+    };
+    group.appendChild(header);
+
+    const routesEl = el('div', { class: 'group-routes' + (isCollapsed ? ' collapsed' : '') });
+    groupRoutes.forEach(route => {
+      const key = routeKey(route);
+      const row = el('div', { class: 'route' + (activeKey === key ? ' active' : '') });
+      row.appendChild(el('span', { class: 'method', text: route.method }));
+      row.appendChild(el('span', { class: 'path', text: route.path }));
+      if (route.middleware.length) row.appendChild(el('span', { class: 'badge', text: route.middleware.length + ' mw' }));
+      row.onclick = () => { activeKey = key; renderList(); renderPanel(route); };
+      routesEl.appendChild(row);
+    });
+    group.appendChild(routesEl);
+
+    list.appendChild(group);
+  });
+}
+
+async function fetchLiveProps(route) {
+  const url = '/app-viewer/props?controller=' + encodeURIComponent(route.controllerClass) + '&action=' + encodeURIComponent(route.action);
+  const res = await fetch(url);
+  const body = await res.json();
+
+  if (!body.success) {
+    throw new Error(body.message);
+  }
+
+  // Packet::toArray() drops `data` entirely when it's empty (not even
+  // `{}` — the key itself is just absent), so body.data is `undefined`
+  // for a page built with no props() call at all. Default to {} so
+  // Object.keys(...) below never throws on that case.
+  return body.data || {};
+}
+
+// Header (title, then a Props JSON button — but only once we know
+// there's something in it), an optional description, then the body
+// section — the real page, in an iframe. Props are fetched right away
+// rather than lazily on a button click: there's no way to know whether
+// a page HAS any without actually invoking its action once, and the
+// iframe below is about to do exactly that anyway (it navigates to the
+// real route) — one more invocation, in parallel, to ask the same
+// action for its props isn't a new category of side effect, just a
+// second look at one already happening.
+function renderPanel(route) {
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  const panelHeader = el('div', { class: 'panel-header' });
+  panelHeader.appendChild(el('h2', { text: route.method + ' ' + route.path }));
+  main.appendChild(panelHeader);
+
+  main.appendChild(el('div', {
+    class: 'mw',
+    text: route.middleware.length ? 'Middleware: ' + route.middleware.join(', ') : 'No middleware',
+  }));
+
+  // Collapsed by default — same pattern as Tester's Description toggle.
+  if (route.comment) {
+    const toggle = el('div', { class: 'comment-toggle collapsed' });
+    toggle.appendChild(el('span', { class: 'chevron', text: '▾' }));
+    toggle.appendChild(el('span', { text: 'Description' }));
+    main.appendChild(toggle);
+
+    const comment = el('div', { class: 'comment collapsed', text: route.comment });
+    main.appendChild(comment);
+
+    toggle.onclick = () => {
+      toggle.classList.toggle('collapsed');
+      comment.classList.toggle('collapsed');
+    };
+  }
+
+  // The body section — rendered below the header, per an iframe rather
+  // than injected HTML: a Page renders a full standalone document
+  // (doctype, head, scripts and all), which innerHTML simply can't host
+  // correctly. Starts pointed at the real, live route (src=) —
+  // same-origin, the exact real response a visitor would get; Render
+  // (added below, once props actually load) switches it to srcdoc= (a
+  // string this page handed it), Reset switches it back.
+  const frameWrap = el('div', { class: 'frame-wrap' });
+  const iframe = el('iframe', { title: route.path });
+  iframe.src = route.path;
+  frameWrap.appendChild(iframe);
+  main.appendChild(frameWrap);
+
+  const thisKey = routeKey(route);
+
+  fetchLiveProps(route).then(props => {
+    // The user may have already clicked a different route by the time
+    // this resolves — main/panelHeader/frameWrap here still refer to
+    // THIS call's (now possibly detached) elements, so mutating them
+    // wouldn't corrupt whatever's on screen now, but there's still no
+    // reason to do any of this work for a panel nobody's looking at.
+    if (activeKey !== thisKey) return;
+
+    // No #[props()] call at all (or an explicitly empty one) — nothing
+    // to show or edit, so no button, no panel.
+    if (Object.keys(props).length === 0) return;
+
+    const originalPropsText = JSON.stringify(props, null, 2);
+
+    const propsBtn = el('button', { class: 'icon-btn', text: 'Props JSON' });
+    panelHeader.appendChild(propsBtn);
+
+    const propsPanel = el('div', { class: 'props-panel hidden' });
+    const propsTextarea = el('textarea', { class: 'props-editor', spellcheck: 'false' });
+    propsTextarea.value = originalPropsText;
+    const propsIcons = el('div', { class: 'props-icons' });
+    const renderBtn = el('button', { class: 'icon-btn', title: 'Re-render this page with the JSON above', text: 'Render' });
+    const resetBtn = el('button', { class: 'icon-btn', title: 'Restore the live props and switch the page below back to live', text: 'Reset' });
+    const propsStatus = el('span', { class: 'props-status' });
+    propsIcons.appendChild(renderBtn);
+    propsIcons.appendChild(resetBtn);
+    propsIcons.appendChild(propsStatus);
+    propsPanel.appendChild(propsTextarea);
+    propsPanel.appendChild(propsIcons);
+    main.insertBefore(propsPanel, frameWrap);
+
+    propsBtn.onclick = () => {
+      propsPanel.classList.toggle('hidden');
+      propsBtn.classList.toggle('active');
+    };
+
+    renderBtn.onclick = async () => {
+      propsStatus.textContent = '';
+
+      let editedProps;
+      try {
+        editedProps = JSON.parse(propsTextarea.value);
+      } catch (e) {
+        propsStatus.textContent = 'Invalid JSON: ' + e.message;
+        return;
+      }
+
+      propsStatus.textContent = 'Rendering…';
+
+      try {
+        const url = '/app-viewer/render?controller=' + encodeURIComponent(route.controllerClass) + '&action=' + encodeURIComponent(route.action);
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editedProps),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          propsStatus.textContent = 'Error: ' + (body ? body.message : res.status + ' ' + res.statusText);
+          return;
+        }
+
+        iframe.removeAttribute('src');
+        iframe.srcdoc = await res.text();
+        propsStatus.textContent = 'Rendered with edited props (not live).';
+      } catch (e) {
+        propsStatus.textContent = 'Request failed: ' + e.message;
+      }
+    };
+
+    resetBtn.onclick = () => {
+      propsStatus.textContent = '';
+      iframe.removeAttribute('srcdoc');
+      iframe.src = route.path;
+      propsTextarea.value = originalPropsText;
+    };
+  }).catch(e => {
+    // A background fetch nobody explicitly asked for — if it fails,
+    // just skip the button rather than surfacing an error for
+    // something the user didn't click.
+    console.error('AppViewer: failed to fetch props for ' + route.path, e);
+  });
+}
+
+loadRoutes().catch(e => {
+  document.getElementById('list').innerHTML = '<p class="empty" style="padding:12px;">Failed to load pages: ' + e.message + '</p>';
+});
+</script>
+</body>
+</html>

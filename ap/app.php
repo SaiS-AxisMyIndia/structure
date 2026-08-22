@@ -13,6 +13,7 @@ return [
         '@pro-sql' => '1.0.0',
         '@session' => '1.0.0',
         '@tester' => '1.0.0',
+        '@app-viewer' => '1.0.0',
         Application::class,
     ],
 ];

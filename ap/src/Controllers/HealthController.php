@@ -35,7 +35,7 @@ class HealthController
     // Method-level override: reachable with no token at all. Issues one
     // (Session::create) so SessionMiddleware's response() step has
     // something to encode and hand back — that's what lets a client reuse
-    // it against /api/health above afterwards.
+    // it against /ap/v1/health above afterwards.
     #[GetMapping('/ping')]
     #[Middleware(new SessionMiddleware(mandatory: false))]
     public function ping(Request $request): array

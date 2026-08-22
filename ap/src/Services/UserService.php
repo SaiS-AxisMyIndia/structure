@@ -5,50 +5,49 @@ declare(strict_types=1);
 namespace App\Services;
 
 use ApiPro\Attributes\Service;
+use App\Repo\UserRepo;
 
 #[Service]
 class UserService
 {
-    /**
-     * @var array<int, array{id: int, name: string, mail: string, password: string}>
-     */
-    private array $users = [
-        1 => ['id' => 1, 'name' => 'Sai Subramanyam', 'mail' => 'sai@apipro.com', 'password' => 'secret123'],
-        2 => ['id' => 2, 'name' => 'Paradigm IT', 'mail' => 'admin@apipro.com', 'password' => 'secret123'],
-    ];
+    public function __construct(private readonly UserRepo $userRepo)
+    {
+    }
 
     /** @return list<array{id: int, name: string, mail: string}> */
     public function all(): array
     {
-        return array_map($this->withoutPassword(...), array_values($this->users));
+        return array_map($this->withoutPassword(...), $this->userRepo->all());
     }
 
     /** @return array{id: int, name: string, mail: string}|null */
     public function find(int $id): ?array
     {
-        $user = $this->users[$id] ?? null;
+        $user = $this->userRepo->find($id);
 
         return $user !== null ? $this->withoutPassword($user) : null;
     }
 
     /**
-     * Demo-only credential check — plaintext comparison via hash_equals()
-     * (timing-safe, but still plaintext; a real app hashes passwords with
-     * password_hash()/password_verify(), never stores or compares them
-     * raw like this). Returns the matching user (without its password)
-     * on success, null on any mismatch.
+     * Plaintext comparison via hash_equals() (timing-safe, but still
+     * plaintext; a real app hashes passwords with password_hash()/
+     * password_verify() and compares with password_verify(), never
+     * stores or compares them raw like this — see UserEntity's own
+     * docblock on the same point). Returns the matching user (without
+     * its password) on success, null on any mismatch — including "no
+     * user with that mail at all", same as before.
      *
      * @return array{id: int, name: string, mail: string}|null
      */
     public function authenticate(string $mail, string $password): ?array
     {
-        foreach ($this->users as $user) {
-            if ($user['mail'] === $mail && hash_equals($user['password'], $password)) {
-                return $this->withoutPassword($user);
-            }
+        $user = $this->userRepo->findByMail($mail);
+
+        if ($user === null || !hash_equals($user['password'], $password)) {
+            return null;
         }
 
-        return null;
+        return $this->withoutPassword($user);
     }
 
     /** @param array{id: int, name: string, mail: string, password: string} $user */
