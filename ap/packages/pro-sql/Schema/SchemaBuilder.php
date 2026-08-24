@@ -81,7 +81,7 @@ final class SchemaBuilder
 
         foreach ($entityClasses as $entityClass) {
             try {
-                $entity = EntityScanner::scan($entityClass);
+                $entity = EntityScanner::scan($entityClass, $entityClasses);
                 $diff = $this->differ->diff($entity);
 
                 if ($diff->isEmpty()) {

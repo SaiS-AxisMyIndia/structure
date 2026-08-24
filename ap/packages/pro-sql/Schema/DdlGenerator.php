@@ -80,6 +80,10 @@ final class DdlGenerator
             $sql .= ' DEFAULT CURRENT_TIMESTAMP';
         }
 
+        if ($column->uuidVersion !== null) {
+            $sql .= ' DEFAULT (' . self::uuidDefaultExpression($column->uuidVersion) . ')';
+        }
+
         if ($column->onUpdateCurrentTimestamp) {
             $sql .= ' ON UPDATE CURRENT_TIMESTAMP';
         }
@@ -115,5 +119,55 @@ final class DdlGenerator
         $quoted = implode(', ', array_map(static fn (string $c): string => "`$c`", $columns));
 
         return "UNIQUE KEY `{$name}` ({$quoted})";
+    }
+
+    /**
+     * The MySQL 8.0.13+ expression this uuid #[Primary]'s version
+     * builds into `DEFAULT (...)` — a pure backstop (see
+     * ColumnDefinition::$uuidVersion's own comment), so it never has to
+     * match ProRepo::newPrimaryKey()/ProSql\Uuid byte-for-byte, only
+     * produce a correctly-shaped RFC 4122 UUID of that version.
+     *
+     * version 4 (random): each field comes from an independent
+     * RANDOM_BYTES() call — fine, since a v4 UUID has no internal
+     * relationship between its fields to preserve, only fixed version
+     * (`4`) / variant (`10xx`) nibbles.
+     *
+     * version 6 (time-ordered): unlike version 4, this DOES need one
+     * consistent 60-bit "timestamp" value split across three output
+     * groups — but MySQL's own UUID() generates a fresh value on EVERY
+     * call (even textually repeated ones in the same expression), so it
+     * can't be used here. NOW(6) is used instead specifically because
+     * MySQL fixes it to one value for an entire statement — repeating
+     * that same sub-expression 3 times below reliably yields the exact
+     * same microsecond count each time, which is what makes the split
+     * internally consistent (and, across separate statements/rows,
+     * genuinely time-ordered — the whole point of v6 over v4).
+     */
+    private static function uuidDefaultExpression(int $version): string
+    {
+        if ($version === 4) {
+            return "lower(concat("
+                . "hex(random_bytes(4)), '-', "
+                . "hex(random_bytes(2)), '-4', "
+                . "substr(hex(random_bytes(2)), 2, 3), '-', "
+                . "hex(floor(ascii(random_bytes(1)) / 64) + 8), substr(hex(random_bytes(2)), 2, 3), '-', "
+                . "hex(random_bytes(6))"
+                . "))";
+        }
+
+        // "the low 15 hex digits (60 bits) of the current microsecond-
+        // since-epoch count, zero-padded" — repeated 3 times, once per
+        // slice, since a DEFAULT expression can't name an intermediate
+        // value the way a variable would.
+        $micros = "substr(lpad(hex(floor(unix_timestamp(now(6)) * 1000000)), 16, '0'), 2, 15)";
+
+        return "lower(concat("
+            . "substr({$micros}, 1, 8), '-', "
+            . "substr({$micros}, 9, 4), '-', "
+            . "'6', substr({$micros}, 13, 3), '-', "
+            . "hex(floor(ascii(random_bytes(1)) / 64) + 8), substr(hex(random_bytes(2)), 2, 3), '-', "
+            . "hex(random_bytes(6))"
+            . "))";
     }
 }

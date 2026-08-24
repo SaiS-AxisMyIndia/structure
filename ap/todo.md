@@ -1,4 +1,14 @@
+>>apc service:list
+apc service:start auth
+apc service:stop auth
+apc service:restart auth
+apc service:logs auth
 
+>>apc start --production --all
+
+
+
+>> I want to view the table data inside
 
 >> add error besite props json button if any error found in the logs - app viewer
 
@@ -35,3 +45,13 @@ for each variable extention like #Primary(int/uuid/bigint etc), #Link(table.colu
 
 -- need curl, copy and wrap icons for the response in tester 
 keep this icons at right side of status code row
+
+
+
+=====
+Documentation website
+Interactive Tester / DevTools
+Microservice CLI
+Security
+Automated tests + CI
+A beautiful 5-minute quickstart

@@ -17,8 +17,16 @@ declare(strict_types=1);
 //   php apc ... --<service>               any OTHER --name: which named microservice to boot as (.env.<service>.<stage-abbrev>)
 //   php apc start [--<stage>] --<svc1> --<svc2> ...   one PHP server PER named service, each on its own PORT, running together until Ctrl+C
 //   php apc stop  [--<stage>] --<svc1> --<svc2> ...   stop several named services at once
+//   php apc start [--<stage>] --all                   same as above, but for EVERY named service configured for that stage
+//   php apc stop  [--<stage>] --all                   stop every named service configured for that stage
 //   php apc install [version]             no module (or `api-pro`): validate every module's resolved version
 //   php apc install <name> [version]      any other module: show/validate its own resolved info
+//
+//   php apc service:list [--<stage>]                every named service configured for a stage, running or not
+//   php apc service:start <name> [--<stage>]        start ONE named service in the background, returning immediately
+//   php apc service:stop <name> [--<stage>]         stop ONE named service, wherever it's running
+//   php apc service:restart <name> [--<stage>]      stop (if running) then start ONE named service
+//   php apc service:logs <name> [--lines=N] [--no-follow]   tail (and by default follow) that service's log file
 //
 // Runs the exact same Runner::boot() as an HTTP request would (module
 // resolution, route compiling/caching rules included) — this is not a
@@ -42,11 +50,13 @@ use ApiPro\Runner;
 // for the rest of the process (see Runner::loadEnvFile()'s
 // $_ENV[$key] ??= $value) — deciding this any later (e.g. inside
 // BuildCommand, after boot() already ran once) would be too late to
-// have any effect. -c/--clean is the one other flag anything here
-// recognizes — excluded so it's never mistaken for a stage or service.
+// have any effect. -c/--clean and --all are the other flags anything
+// here recognizes — excluded so neither is ever mistaken for a stage
+// or a literal service named "all".
 $cliArgs = array_slice($argv, 1);
 $stageFlags = [];
 $serviceFlags = [];
+$all = false;
 
 foreach ($cliArgs as $arg) {
     if (!str_starts_with($arg, '--') || $arg === '--clean') {
@@ -55,7 +65,9 @@ foreach ($cliArgs as $arg) {
 
     $name = substr($arg, 2);
 
-    if (in_array($name, Runner::STAGES, true)) {
+    if ($name === 'all') {
+        $all = true;
+    } elseif (in_array($name, Runner::STAGES, true)) {
         $stageFlags[] = $name;
     } else {
         $serviceFlags[] = $name;
@@ -69,15 +81,49 @@ if (count($stageFlags) > 1) {
 }
 
 $stage = $stageFlags[0] ?? null;
+$first = $cliArgs[0] ?? null;
 
-// More than one --<service> flag only makes sense for `apc start`/
-// `apc stop` — running (or stopping) several services, each fully
-// independent (own .env.<service>.<stage>, own PORT, own process),
-// together. Every other command boots exactly once, so more than one
-// service name for it is just a mistake, not a request for N runs.
-if (count($serviceFlags) > 1) {
-    $first = $cliArgs[0] ?? null;
+// --all expands to every named service configured for the resolved
+// stage (Runner::namedServices() — one .env.<service>.<stage-abbrev>
+// file per service, pure filesystem discovery, safe before boot()) —
+// the same $serviceFlags list `--<svc1> --<svc2> ...` builds by hand,
+// just without the caller having to name each one.
+if ($all) {
+    if (!in_array($first, ['start', 'stop'], true)) {
+        fwrite(STDERR, "--all is only supported by `apc start`/`apc stop`.\n");
 
+        exit(1);
+    }
+
+    if ($serviceFlags !== []) {
+        fwrite(STDERR, "--all can't be combined with an explicit --<service> flag.\n");
+
+        exit(1);
+    }
+
+    $resolvedStageForAll = $stage ?? getenv('APP_ENV') ?: 'local';
+    $serviceFlags = Runner::namedServices($basePath, $resolvedStageForAll);
+
+    if ($serviceFlags === []) {
+        fwrite(
+            STDERR,
+            "--all: no named services configured for --$resolvedStageForAll (no .env.<service>."
+                . Runner::stageAbbreviation($resolvedStageForAll) . " file found).\n",
+        );
+
+        exit(1);
+    }
+}
+
+// More than one --<service> flag (or --all, resolved to any number of
+// them, even just one — the caller explicitly asked for "every named
+// service", not "the flat/default app") only makes sense for
+// `apc start`/`apc stop` — running (or stopping) several services,
+// each fully independent (own .env.<service>.<stage>, own PORT, own
+// process), together. Every other command boots exactly once, so more
+// than one service name for it is just a mistake, not a request for N
+// runs.
+if ($all || count($serviceFlags) > 1) {
     if (!in_array($first, ['start', 'stop'], true)) {
         fwrite(STDERR, "Multiple --<service> flags are only supported by `apc start`/`apc stop`.\n");
 

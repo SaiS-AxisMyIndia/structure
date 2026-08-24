@@ -8,12 +8,17 @@ use ApiPro\Runner;
 use Throwable;
 
 /**
- * `apc start [host:port] [--<stage>] [--<service>]` — always prepares a
- * clean build first (the same as `apc build --clean` followed by
- * `apc build`, so the server never serves a stale route table left over
- * from an earlier run), then starts PHP's built-in web server bound to
- * that address in the foreground — printing the /tester and/or
- * /app-viewer URL too, whichever of the two is enabled.
+ * `apc start [host:port] [--<stage>] [--<service>]` — first makes sure
+ * runner/ actually exists at all (BuildCommand::ensureBuilt(): a full
+ * `apc build` if it's missing entirely — a fresh checkout, or one
+ * `apc clean` just wiped — a no-op otherwise), then always refreshes
+ * just the route cache (clearRoutesCache() + warmRoutes() — the same
+ * pair `apc build` itself calls, minus the runner/*.php regeneration
+ * step, so the server never serves a stale route table left over from
+ * an earlier run without paying for a full rebuild on every single
+ * start), then starts PHP's built-in web server bound to that address
+ * in the foreground — printing the /tester and/or /app-viewer URL
+ * too, whichever of the two is enabled.
  *
  * Default address is 127.0.0.1:<PORT in .env.<env>>, or 127.0.0.1:7070
  * if that env has none. `apc start 8081` is shorthand for
@@ -60,6 +65,12 @@ final class StartCommand implements Command
             return 1;
         }
 
+        if (!BuildCommand::ensureBuilt($this->basePath)) {
+            fwrite(STDERR, "Build failed — aborting start.\n");
+
+            return 1;
+        }
+
         Runner::clearRoutesCache();
 
         try {
@@ -89,6 +100,29 @@ final class StartCommand implements Command
         }
 
         $key = ServiceProcess::key($stage, $service);
+        $existingPid = ServiceProcess::runningPid($this->basePath, $key);
+
+        if ($existingPid !== null) {
+            // spawn() writes $key's pidfile unconditionally, the moment
+            // its child process exists — it has no way to know a PID
+            // already sitting in that file belongs to a still-live
+            // server rather than a stale one. Left unchecked, a second
+            // `apc start` for the same (stage, service) would overwrite
+            // that pidfile with its own (likely doomed to fail — the
+            // port's already taken) child's PID, and then delete it
+            // entirely once that child dies for failing to bind —
+            // leaving the FIRST, still-running server with no pidfile
+            // at all, and `apc stop` unable to find it ever again.
+            fwrite(STDERR, sprintf(
+                "%s is already running (--%s, pid %d) — stop it first with `apc stop`.\n",
+                $service ?? $stage,
+                $stage,
+                $existingPid,
+            ));
+
+            return 1;
+        }
+
         $child = ServiceProcess::spawn($this->basePath, $key, $address, $stage, $service);
 
         if ($child === null) {

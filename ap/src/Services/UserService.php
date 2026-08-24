@@ -14,15 +14,37 @@ class UserService
     {
     }
 
-    /** @return list<array{id: int, name: string, mail: string}> */
+    /** @return list<array{id: string, name: string, mail: string}> */
     public function all(): array
     {
         return array_map($this->withoutPassword(...), $this->userRepo->all());
     }
 
-    /** @return array{id: int, name: string, mail: string}|null */
-    public function find(int $id): ?array
+    /** @return array{id: string, name: string, mail: string}|null */
+    public function find(string $id): ?array
     {
+        $user = $this->userRepo->find($id);
+
+        return $user !== null ? $this->withoutPassword($user) : null;
+    }
+
+    /**
+     * Creates a real row in `users` (plaintext password — same demo-only
+     * caveat as authenticate()'s own docblock below, and UserEntity's:
+     * hash this with password_hash() before this table ever holds a
+     * real user's password) and returns it without its password, or
+     * null if $mail is already taken — AuthController::register() turns
+     * that into a 409 rather than a duplicate row.
+     *
+     * @return array{id: string, name: string, mail: string}|null
+     */
+    public function register(string $name, string $mail, string $password): ?array
+    {
+        if ($this->userRepo->findByMail($mail) !== null) {
+            return null;
+        }
+
+        $id = $this->userRepo->create(['name' => $name, 'mail' => $mail, 'password' => $password]);
         $user = $this->userRepo->find($id);
 
         return $user !== null ? $this->withoutPassword($user) : null;
@@ -37,7 +59,7 @@ class UserService
      * its password) on success, null on any mismatch — including "no
      * user with that mail at all", same as before.
      *
-     * @return array{id: int, name: string, mail: string}|null
+     * @return array{id: string, name: string, mail: string}|null
      */
     public function authenticate(string $mail, string $password): ?array
     {
@@ -50,7 +72,7 @@ class UserService
         return $this->withoutPassword($user);
     }
 
-    /** @param array{id: int, name: string, mail: string, password: string} $user */
+    /** @param array{id: string, name: string, mail: string, password: string} $user */
     private function withoutPassword(array $user): array
     {
         unset($user['password']);

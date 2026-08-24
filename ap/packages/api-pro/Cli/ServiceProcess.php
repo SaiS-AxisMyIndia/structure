@@ -32,6 +32,44 @@ final class ServiceProcess
     }
 
     /**
+     * Where `apc service:start`'s detached child's stdout/stderr get
+     * appended, and what `apc service:logs` reads back — the one place
+     * this filename convention lives, the same role pidFilePath() plays
+     * for pidfiles.
+     */
+    public static function logFilePath(string $basePath, string $key): string
+    {
+        return "$basePath/storage/logs/$key.log";
+    }
+
+    /**
+     * The pid a key's pidfile currently points at, IF that process is
+     * still actually alive (posix_kill($pid, 0) as a pure existence
+     * probe — no signal is delivered) — null otherwise, including "no
+     * pidfile at all". A stale pidfile (process already gone) is
+     * removed here rather than left behind, so `service:list`/`stop`/
+     * `start` never have to reason about a pidfile that's lying.
+     */
+    public static function runningPid(string $basePath, string $key): ?int
+    {
+        $path = self::pidFilePath($basePath, $key);
+
+        if (!is_file($path)) {
+            return null;
+        }
+
+        $pid = (int) trim((string) file_get_contents($path));
+
+        if ($pid > 0 && posix_kill($pid, 0)) {
+            return $pid;
+        }
+
+        unlink($path);
+
+        return null;
+    }
+
+    /**
      * Spawns `php -S $address -t $basePath`, with APP_ENV=$stage (and
      * APC_SERVICE=$service, when given) set in the CHILD's OWN process
      * environment only — this process's $_ENV stays untouched. That's
@@ -79,30 +117,102 @@ final class ServiceProcess
     }
 
     /**
-     * Reads <key>.pid and sends SIGTERM to that PID, if it's still
-     * actually running — posix_kill($pid, 0) as an existence probe
-     * first, so a stale pidfile left over from a crash doesn't report
-     * false success, or worse, signal whatever unrelated process has
-     * since reused that PID. The pidfile is removed either way.
+     * Like spawn(), but for a service meant to keep running after THIS
+     * process exits — `apc service:start` prints the pid and returns
+     * right away, instead of blocking in the foreground the way
+     * superviseUntilInterrupted() makes `apc start` do.
+     *
+     * Deliberately does NOT go through proc_open(): a proc_open()
+     * resource that's never proc_close()'d gets proc_close()'d anyway,
+     * implicitly, when it's garbage-collected or the request ends — and
+     * that call BLOCKS until the child exits, which would hang this
+     * command forever against a long-running server. Shelling out with
+     * a trailing `&` backgrounds the process at the shell level, fully
+     * independent of this PHP process from that point on; `echo $!`
+     * (run synchronously right after, in the same `sh -c` invocation)
+     * captures the backgrounded job's own pid.
+     *
+     * Stdout/stderr are appended straight to $logPath — a real file,
+     * not a pipe this process would otherwise have to keep draining
+     * for the child to avoid blocking on a full pipe buffer — so once
+     * this returns, the child owes this process nothing further. See
+     * ServiceLogsCommand for reading that file back.
+     *
+     * @return int|null the backgrounded process's pid, or null if the shell reported none
+     */
+    public static function spawnDetached(string $basePath, string $key, string $address, string $stage, ?string $service, string $logPath): ?int
+    {
+        $logDir = dirname($logPath);
+
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0775, true);
+        }
+
+        file_put_contents(
+            $logPath,
+            sprintf("\n==> apc service:start %s --%s @ %s\n", $service ?? $key, $stage, date('c')),
+            FILE_APPEND,
+        );
+
+        $envAssignment = 'APP_ENV=' . escapeshellarg($stage);
+
+        if ($service !== null) {
+            $envAssignment .= ' APC_SERVICE=' . escapeshellarg($service);
+        }
+
+        $command = sprintf(
+            '%s %s -S %s -t %s >> %s 2>&1 & echo $!',
+            $envAssignment,
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg($address),
+            escapeshellarg($basePath),
+            escapeshellarg($logPath),
+        );
+
+        $pid = (int) trim((string) shell_exec($command));
+
+        if ($pid <= 0) {
+            return null;
+        }
+
+        self::writePidFile($basePath, $key, $pid);
+
+        return $pid;
+    }
+
+    /**
+     * Reads <key>.pid (via runningPid(), which already discards it if
+     * stale) and sends SIGTERM to that PID, then waits (briefly — up to
+     * one second) for it to actually exit before returning, so a
+     * command that stops and immediately restarts the same service
+     * (see ServiceRestartCommand) doesn't race the old process for its
+     * own port.
      */
     public static function stop(string $basePath, string $key): bool
     {
-        $path = self::pidFilePath($basePath, $key);
+        $pid = self::runningPid($basePath, $key);
 
-        if (!is_file($path)) {
+        if ($pid === null) {
             return false;
         }
 
-        $pid = (int) trim((string) file_get_contents($path));
-        $alive = $pid > 0 && posix_kill($pid, 0);
+        posix_kill($pid, SIGTERM);
+        unlink(self::pidFilePath($basePath, $key));
+        self::waitForExit($pid);
 
-        if ($alive) {
-            posix_kill($pid, SIGTERM);
+        return true;
+    }
+
+    /** Polls posix_kill($pid, 0) (a pure existence probe) until it fails or $timeoutMicroseconds runs out. */
+    private static function waitForExit(int $pid, int $timeoutMicroseconds = 1_000_000): void
+    {
+        $elapsed = 0;
+        $interval = 50_000;
+
+        while ($elapsed < $timeoutMicroseconds && posix_kill($pid, 0)) {
+            usleep($interval);
+            $elapsed += $interval;
         }
-
-        unlink($path);
-
-        return $alive;
     }
 
     /**

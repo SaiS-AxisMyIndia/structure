@@ -20,6 +20,11 @@ final class Application
         'build' => BuildCommand::class,
         'clean' => CleanCommand::class,
         'install' => InstallCommand::class,
+        'service:list' => ServiceListCommand::class,
+        'service:start' => ServiceStartCommand::class,
+        'service:stop' => ServiceStopCommand::class,
+        'service:restart' => ServiceRestartCommand::class,
+        'service:logs' => ServiceLogsCommand::class,
     ];
 
     public function __construct(private readonly string $basePath)
@@ -69,6 +74,12 @@ final class Application
           apc ... --<service>                     any OTHER --name: which named microservice to boot as (.env.<service>.<stage-abbrev>) — see README
           apc install [module] [version]           no module (or `api-pro`): validate every module resolves (optionally against an expected app version)
           apc install <module> [version]           any other module: show its info (optionally validate its version)
+
+          apc service:list [--<stage>]                                every named service configured for a stage, running or not
+          apc service:start <service> [--<stage>]                     start ONE named service in the background and return immediately
+          apc service:stop <service> [--<stage>]                      stop ONE named service, wherever it's running
+          apc service:restart <service> [--<stage>]                   stop (if running) then start ONE named service
+          apc service:logs <service> [--lines=N] [--no-follow]        tail (and by default follow) that service's log file
 
         HELP;
     }

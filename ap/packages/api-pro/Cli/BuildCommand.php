@@ -62,6 +62,43 @@ final class BuildCommand implements Command
     {
     }
 
+    /**
+     * Runs a full build (writeRunnerFiles() + warmRoutes() + every
+     * module's own build() hook) ONLY if runner/ doesn't exist at all —
+     * a fresh checkout, or one `apc clean` just wiped. `apc start`
+     * (StartCommand) and `apc start --<svc1> --<svc2> ...`
+     * (MultiStartCommand) both call this before spawning anything:
+     * Runner::boot() tolerates a missing runner/<name>.php by
+     * degrading that config key to [] rather than fataling (see its
+     * own comment for why) — which means, without this check, `apc
+     * start` against a missing runner/ would report success while
+     * every module's controllers()/entities()/etc. silently resolved
+     * to nothing.
+     *
+     * Boots Runner itself if it hasn't booted yet — build() below
+     * needs Runner::get('env')/('service') to already resolve to
+     * something. That matters for MultiStartCommand specifically: its
+     * orchestrator process deliberately never boots Runner on its own
+     * (see that class's own comment), since it's never the thing
+     * actually serving a request. $stage is that same orchestrator's
+     * already-resolved --<stage>; harmless to pass even when Runner
+     * has already booted (boot() is a no-op the second time).
+     *
+     * @return bool false (after printing to STDERR) if the build itself failed
+     */
+    public static function ensureBuilt(string $basePath, ?string $stage = null): bool
+    {
+        if (is_dir("$basePath/runner")) {
+            return true;
+        }
+
+        Runner::boot($basePath, $stage);
+
+        echo "runner/ not found — building first (apc build)...\n";
+
+        return (new self($basePath))->run([]) === 0;
+    }
+
     public function run(array $args): int
     {
         foreach ($args as $arg) {

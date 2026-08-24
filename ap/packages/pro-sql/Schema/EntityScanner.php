@@ -43,8 +43,21 @@ use ReflectionUnionType;
  */
 final class EntityScanner
 {
-    /** @param class-string $class */
-    public static function scan(string $class): EntityDefinition
+    /**
+     * @param class-string $class
+     * @param list<class-string> $allEntityClasses every entity `apc
+     *        build` knows about (Runner::get('entities')) — needed
+     *        ONLY to resolve a #[Link] column's SQL type against
+     *        whatever the REFERENCED entity's own #[Primary] actually
+     *        is (see columnFor()/referencedPrimaryKeySqlType()); an
+     *        entity with no #[Link] properties never touches this list
+     *        at all. Omitted (or the referenced entity isn't in it), a
+     *        #[Link] column falls back to whatever its own PHP property
+     *        type would map to — which risks a type MISMATCH against
+     *        the referenced column InnoDB won't accept a foreign key
+     *        across (see the same method's own comment).
+     */
+    public static function scan(string $class, array $allEntityClasses = []): EntityDefinition
     {
         $reflection = new ReflectionClass($class);
         $entityAttributes = $reflection->getAttributes(ProEntity::class);
@@ -64,7 +77,7 @@ final class EntityScanner
                 continue;
             }
 
-            $column = self::columnFor($class, $property);
+            $column = self::columnFor($class, $property, $allEntityClasses);
             $columns[] = $column;
 
             if ($column->primary) {
@@ -87,7 +100,8 @@ final class EntityScanner
         return new EntityDefinition($class, $table, $columns, self::buildUniqueGroups($class, $columns, $uniqueMapPairs));
     }
 
-    private static function columnFor(string $class, ReflectionProperty $property): ColumnDefinition
+    /** @param list<class-string> $allEntityClasses */
+    private static function columnFor(string $class, ReflectionProperty $property, array $allEntityClasses): ColumnDefinition
     {
         $name = $property->getName();
         $unique = $property->getAttributes(Unique::class) !== [];
@@ -111,6 +125,16 @@ final class EntityScanner
         if ($linkAttributes !== []) {
             $link = $linkAttributes[0]->newInstance();
 
+            // MUST match the referenced column's real type exactly — a
+            // foreign key between a CHAR(36) uuid primary key and a
+            // VARCHAR(255) (what a plain `string $fooId` property would
+            // otherwise map to on its own) fails InnoDB's constraint
+            // check even for values that are logically equal (it
+            // compares raw index bytes, which a CHAR column's
+            // fixed-length padding changes) — see
+            // referencedPrimaryKeySqlType()'s own comment.
+            $sqlType = self::referencedPrimaryKeySqlType($link->table, $allEntityClasses) ?? $sqlType;
+
             return new ColumnDefinition(
                 name: $name,
                 sqlType: $sqlType,
@@ -121,6 +145,39 @@ final class EntityScanner
         }
 
         return new ColumnDefinition(name: $name, sqlType: $sqlType, nullable: $nullable, unique: $unique);
+    }
+
+    /**
+     * Finds, among $allEntityClasses, the one whose #[ProEntity] maps to
+     * $table, and returns its #[Primary] column's actual SQL type
+     * (`CHAR(36)` for uuid, `INT UNSIGNED`/`BIGINT UNSIGNED` for
+     * int/bigint) — or null if no entity in the list maps to that table,
+     * or that entity declares no #[Primary] at all (both cases: the
+     * caller falls back to the #[Link] property's own PHP type, its only
+     * option without this).
+     *
+     * @param list<class-string> $allEntityClasses
+     */
+    private static function referencedPrimaryKeySqlType(string $table, array $allEntityClasses): ?string
+    {
+        foreach ($allEntityClasses as $entityClass) {
+            $reflection = new ReflectionClass($entityClass);
+            $entityAttributes = $reflection->getAttributes(ProEntity::class);
+
+            if ($entityAttributes === [] || $entityAttributes[0]->newInstance()->table !== $table) {
+                continue;
+            }
+
+            foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+                $primaryAttributes = $property->getAttributes(Primary::class);
+
+                if ($primaryAttributes !== []) {
+                    return self::primaryColumn($property->getName(), $primaryAttributes[0]->newInstance(), false)->sqlType;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static function primaryColumn(string $name, Primary $primary, bool $unique): ColumnDefinition
@@ -134,10 +191,13 @@ final class EntityScanner
             // already-PRIMARY KEY column — see its own docblock.
             PrimaryType::Int => new ColumnDefinition($name, 'INT UNSIGNED', primary: true, autoIncrement: true, unique: $unique),
             PrimaryType::Bigint => new ColumnDefinition($name, 'BIGINT UNSIGNED', primary: true, autoIncrement: true, unique: $unique),
-            // No AUTO_INCREMENT for a uuid — the application (or a
-            // DEFAULT expression a future version might add) supplies it,
-            // not MySQL.
-            PrimaryType::Uuid => new ColumnDefinition($name, 'CHAR(36)', primary: true, unique: $unique),
+            // No AUTO_INCREMENT for a uuid — the DEFAULT (...) expression
+            // DdlGenerator builds from $primary->version is only a
+            // backstop for whatever insert path doesn't supply one
+            // itself (see ColumnDefinition::$uuidVersion); the
+            // application (ProRepo::newPrimaryKey()) supplies the real
+            // one MySQL's own lastInsertId()-less INSERT can't hand back.
+            PrimaryType::Uuid => new ColumnDefinition($name, 'CHAR(36)', primary: true, unique: $unique, uuidVersion: $primary->version),
         };
     }
 

@@ -8,5 +8,6 @@ declare(strict_types=1);
 // ProSql\ProSqlModule::build() via Runner::get('entities').
 
 return [
+    App\Entities\PostEntity::class,
     App\Entities\UserEntity::class,
 ];

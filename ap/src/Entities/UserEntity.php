@@ -12,8 +12,8 @@ use ProSql\Attributes\Timestamp;
 #[ProEntity('users')]
 class UserEntity
 {
-    #[Primary('int')]
-    public int $id;
+    #[Primary('uuid')]
+    public string $id;
 
     public string $name;
 

@@ -8,7 +8,9 @@ namespace ProSql;
  * A fluent, parameter-bound MySQL query builder — this is ProSql's
  * equivalent of Spring Data's Criteria/QueryDSL layer. Every value placed
  * through where()/insert()/update() is bound, never string-concatenated, so
- * building queries this way is SQL-injection-safe by construction.
+ * building queries this way is SQL-injection-safe by construction. raw()
+ * is the deliberate escape hatch for whatever this builder can't express —
+ * still parameter-bound the same way, see its own docblock.
  */
 class QueryBuilder
 {
@@ -20,6 +22,8 @@ class QueryBuilder
     private array $columns = ['*'];
     private ?int $limit = null;
     private ?int $offset = null;
+    private ?string $rawSql = null;
+    private array $rawBindings = [];
 
     public function __construct(private readonly Connection $connection)
     {
@@ -106,15 +110,56 @@ class QueryBuilder
         return $this;
     }
 
+    /**
+     * The escape hatch for a query the fluent builder above can't
+     * express (a subquery, a UNION, a window function, hand-tuned SQL,
+     * ...) — still fully parameter-bound, exactly like every other
+     * method here: bind every value through $bindings, never
+     * string-concatenate one into $sql yourself, or this stops being
+     * the SQL-injection-safe-by-construction guarantee the rest of this
+     * class gives you.
+     *
+     *   $repo->query()->raw('SELECT * FROM users WHERE id = ? AND createdAt = ?', [$id, $createdAt])->get();
+     *
+     * Once called, it OWNS this query entirely — get()/first() run
+     * exactly $sql with $bindings and nothing else; any table()/where()/
+     * join()/select()/etc. already chained (or chained after) is simply
+     * ignored. Mixing raw SQL with the fluent builder's own state would
+     * leave it ambiguous which one actually wins; this makes it
+     * explicit instead — raw() replaces the query, it doesn't decorate
+     * it.
+     *
+     * @param list<mixed> $bindings
+     */
+    public function raw(string $sql, array $bindings = []): self
+    {
+        $this->rawSql = $sql;
+        $this->rawBindings = $bindings;
+
+        return $this;
+    }
+
     /** @return list<array<string, mixed>> */
     public function get(): array
     {
+        if ($this->rawSql !== null) {
+            return $this->connection->select($this->rawSql, $this->rawBindings);
+        }
+
         return $this->connection->select($this->toSelectSql(), $this->bindings);
     }
 
     /** @return array<string, mixed>|null */
     public function first(): ?array
     {
+        // A raw query supplies its own complete SQL — appending LIMIT 1
+        // to arbitrary hand-written SQL (a UNION, a subquery, ...) isn't
+        // safe to do blindly, so this reads the first row back out
+        // in PHP instead of asking the raw query to do it via SQL.
+        if ($this->rawSql !== null) {
+            return $this->get()[0] ?? null;
+        }
+
         $row = $this->limit(1)->get();
 
         return $row[0] ?? null;

@@ -14,6 +14,7 @@ return [
     App\Controllers\AuthController::class,
     App\Controllers\HealthController::class,
     App\Controllers\HomeController::class,
+    App\Controllers\PostController::class,
     App\Controllers\UserController::class,
     Lib\Controllers\AboutController::class,
     Lib\Controllers\ContactController::class,

@@ -354,9 +354,20 @@ final class Runner
             return "$basePath/.env.$stage";
         }
 
-        $abbreviation = self::STAGE_ABBREVIATIONS[$stage] ?? $stage;
+        return "$basePath/.env.$service." . self::stageAbbreviation($stage);
+    }
 
-        return "$basePath/.env.$service.$abbreviation";
+    /**
+     * The short form envFilePath() uses in a per-service filename (see
+     * STAGE_ABBREVIATIONS's own comment) — exposed publicly so anything
+     * that needs to go the OTHER way, from a stage to a filename
+     * fragment, without re-deriving the mapping itself (e.g.
+     * ServiceListCommand globbing `.env.*.<abbreviation>` to discover
+     * which named services exist for the current stage).
+     */
+    public static function stageAbbreviation(string $stage): string
+    {
+        return self::STAGE_ABBREVIATIONS[$stage] ?? $stage;
     }
 
     /**
@@ -374,6 +385,32 @@ final class Runner
     public static function peekEnv(string $basePath, string $stage, ?string $service = null): array
     {
         return self::parseEnvFile(self::envFilePath($basePath, $stage, $service));
+    }
+
+    /**
+     * Every named service configured for a stage — one entry per
+     * .env.<service>.<stage-abbreviation> file sitting next to app.php
+     * (see envFilePath()), sorted alphabetically. Pure filesystem
+     * discovery — safe to call before boot(). Used by `apc
+     * service:list` (see ServiceListCommand) and by the `apc` script's
+     * own --all flag (`apc start --all`, `apc stop --all`) to expand
+     * "every service" without the caller having to name each one.
+     *
+     * @return list<string>
+     */
+    public static function namedServices(string $basePath, string $stage): array
+    {
+        $suffix = '.' . self::stageAbbreviation($stage);
+        $names = [];
+
+        foreach (glob("$basePath/.env.*$suffix") ?: [] as $path) {
+            // ".env.<service>.<abbreviation>" -> "<service>"
+            $names[] = substr(basename($path), strlen('.env.'), -strlen($suffix));
+        }
+
+        sort($names);
+
+        return $names;
     }
 
     /** @return array<string, string> */

@@ -27,10 +27,10 @@ use Tester\Tester;
 // that's what's wanted here too.
 //
 // Every action here talks to the real `users` table through UserRepo —
-// not UserService's in-memory demo array (that's still what
-// AuthController's login() checks credentials against; the two aren't
-// wired together, so a user created here won't be able to log in until
-// that's done too, if it ever is).
+// the same table AuthController's login()/register() (via UserService,
+// which wraps this same UserRepo) already check credentials against, so
+// a user created here can log in immediately, same as one created via
+// /auth/register.
 #[RestController(prefix: '/users')]
 #[Middleware(new SessionMiddleware())]
 class UserController
@@ -53,9 +53,9 @@ class UserController
     #[GetMapping('/{id}')]
     public function show(Request $request): array|Packet|PacketFailed
     {
-        Tester::comment("Fetch one user by numeric id.\nReturns 404 (via PacketFailed) if no user with that id exists.");
+        Tester::comment("Fetch one user by id.\nReturns 404 (via PacketFailed) if no user with that id exists.");
 
-        $id = $request->params->getInt('id');
+        $id = $request->params->getString('id');
         $user = $this->userRepo->find($id);
 
         if ($user === null) {
@@ -85,7 +85,7 @@ class UserController
 
         $id = $this->userRepo->create(['name' => $name, 'mail' => $mail, 'password' => $password]);
 
-        return new PacketSuccess('User created', data: $this->userRepo->find((int) $id));
+        return new PacketSuccess('User created', data: $this->userRepo->find($id));
     }
 
     #[PutMapping('/{id}')]
@@ -96,7 +96,7 @@ class UserController
                 . "the body are changed, the rest are left as they were.\nReturns 404 if no user with that id exists.",
         );
 
-        $id = $request->params->getInt('id');
+        $id = $request->params->getString('id');
 
         if ($this->userRepo->find($id) === null) {
             return new PacketFailed('User not found', 3);
@@ -122,7 +122,7 @@ class UserController
     {
         Tester::comment("Delete a user by id.\nReturns 404 if no user with that id exists.");
 
-        $id = $request->params->getInt('id');
+        $id = $request->params->getString('id');
 
         if ($this->userRepo->find($id) === null) {
             return new PacketFailed('User not found', 3);
