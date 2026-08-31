@@ -7,19 +7,12 @@ namespace ApiPro\Cli;
 use ApiPro\Runner;
 
 /**
- * `apc stop [--<stage>] [--<service>]` — stops the ONE server that a
- * matching `apc start` (same stage, same service, or lack of one)
- * launched, wherever it's running (a different terminal, a background
- * process, another deploy step entirely) — it doesn't need to be this
- * process's child. `Runner::get('service')` here is exactly what
- * StartCommand used to build the SAME pidfile key when it started that
- * service (see ServiceProcess::key()); with no --<service> flag either
- * (the flat/default case), it's null on both ends, and the key is just
- * the stage name.
- *
- * More than one --<service> flag is a different command — see
- * MultiStopCommand (dispatched directly by the `apc` script, the same
- * split `start`/MultiStartCommand already makes).
+ * `apc stop [-f|--flavour <name>]` — stops the ONE server that a matching
+ * `apc start` (same flavour) launched, wherever it's running (a
+ * different terminal, a background process, another deploy step
+ * entirely) — it doesn't need to be this process's child.
+ * `Runner::get('env')` here is exactly what StartCommand used to name
+ * that same flavour's pidfile (see AppProcess::pidFilePath()).
  */
 final class StopCommand implements Command
 {
@@ -29,17 +22,15 @@ final class StopCommand implements Command
 
     public function run(array $args): int
     {
-        $stage = Runner::get('env', 'local');
-        $service = Runner::get('service');
-        $key = ServiceProcess::key($stage, $service);
+        $flavour = Runner::get('env', 'local');
 
-        if (ServiceProcess::stop($this->basePath, $key)) {
-            printf("Stopped %s.\n", $service ?? $stage);
+        if (AppProcess::stop($this->basePath, $flavour)) {
+            printf("Stopped %s.\n", $flavour);
 
             return 0;
         }
 
-        fwrite(STDERR, sprintf("%s isn't running (no active %s.pid).\n", $service ?? $stage, $key));
+        fwrite(STDERR, sprintf("%s isn't running (no active %s.pid).\n", $flavour, $flavour));
 
         return 1;
     }

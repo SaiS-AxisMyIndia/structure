@@ -28,10 +28,11 @@ use Throwable;
  * gets regenerated does. Safe even if runner/ is entirely missing to
  * start with.
  *
- * `--local`/`--production` (or a real APP_ENV process env var, else
- * 'local') pick which .env.<env> file this build boots from — resolved
- * once, up front, by the `apc` script itself before Runner::boot() ever
- * runs; see that script's own comment for why it has to happen there.
+ * `-f`/`--flavour <name>` (or a real APP_ENV process env var, else
+ * 'local') picks which .env.<name> file this build boots from —
+ * resolved once, up front, by the `apc` script itself before
+ * Runner::boot() ever runs; see that script's own comment for why it has
+ * to happen there.
  */
 final class BuildCommand implements Command
 {
@@ -66,33 +67,27 @@ final class BuildCommand implements Command
      * Runs a full build (writeRunnerFiles() + warmRoutes() + every
      * module's own build() hook) ONLY if runner/ doesn't exist at all —
      * a fresh checkout, or one `apc clean` just wiped. `apc start`
-     * (StartCommand) and `apc start --<svc1> --<svc2> ...`
-     * (MultiStartCommand) both call this before spawning anything:
-     * Runner::boot() tolerates a missing runner/<name>.php by
-     * degrading that config key to [] rather than fataling (see its
-     * own comment for why) — which means, without this check, `apc
-     * start` against a missing runner/ would report success while
-     * every module's controllers()/entities()/etc. silently resolved
-     * to nothing.
+     * (StartCommand) calls this before spawning anything: Runner::boot()
+     * tolerates a missing runner/<name>.php by degrading that config key
+     * to [] rather than fataling (see its own comment for why) — which
+     * means, without this check, `apc start` against a missing runner/
+     * would report success while every module's controllers()/entities()/
+     * etc. silently resolved to nothing.
      *
-     * Boots Runner itself if it hasn't booted yet — build() below
-     * needs Runner::get('env')/('service') to already resolve to
-     * something. That matters for MultiStartCommand specifically: its
-     * orchestrator process deliberately never boots Runner on its own
-     * (see that class's own comment), since it's never the thing
-     * actually serving a request. $stage is that same orchestrator's
-     * already-resolved --<stage>; harmless to pass even when Runner
-     * has already booted (boot() is a no-op the second time).
+     * Boots Runner itself if it hasn't booted yet — build() below needs
+     * Runner::get('env') to already resolve to something. $flavour is
+     * harmless to pass even when Runner has already booted (boot() is a
+     * no-op the second time).
      *
      * @return bool false (after printing to STDERR) if the build itself failed
      */
-    public static function ensureBuilt(string $basePath, ?string $stage = null): bool
+    public static function ensureBuilt(string $basePath, ?string $flavour = null): bool
     {
         if (is_dir("$basePath/runner")) {
             return true;
         }
 
-        Runner::boot($basePath, $stage);
+        Runner::boot($basePath, $flavour);
 
         echo "runner/ not found — building first (apc build)...\n";
 
@@ -102,12 +97,8 @@ final class BuildCommand implements Command
     public function run(array $args): int
     {
         foreach ($args as $arg) {
-            // --local/--production are consumed by the `apc` script
-            // itself, before Runner::boot() ever ran — accepted (and
-            // ignored) here too so `apc build --clean --production`
-            // doesn't get rejected as an unknown flag by this check.
-            if (!in_array($arg, ['-c', '--clean', '--local', '--production'], true)) {
-                fwrite(STDERR, "Usage: apc build [-c|--clean] [--local|--production]\n");
+            if (!in_array($arg, ['-c', '--clean'], true)) {
+                fwrite(STDERR, "Usage: apc build [-c|--clean]\n");
 
                 return 1;
             }
@@ -134,13 +125,12 @@ final class BuildCommand implements Command
         // The files just written need Runner's cached config/module list
         // thrown away and reloaded from what's on disk now, or
         // warmRoutes()/modules()/build() below would keep building
-        // against the OLD config. Runner::get('env')/('service') carry
-        // the already-resolved --<stage>/--<service> choice through, so
-        // this reboot doesn't silently fall back to the flat/default app.
-        $stage = Runner::get('env');
-        $service = Runner::get('service');
+        // against the OLD config. Runner::get('env') carries the
+        // already-resolved -f/--flavour choice through, so this reboot
+        // doesn't silently fall back to 'local'.
+        $flavour = Runner::get('env');
         Runner::reset();
-        Runner::boot($this->basePath, $stage, $service);
+        Runner::boot($this->basePath, $flavour);
 
         try {
             $routes = Runner::warmRoutes();

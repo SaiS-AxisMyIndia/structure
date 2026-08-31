@@ -32,6 +32,15 @@ use Traversable;
  *   $request->body->getMail('mail');                 // required — 400 if missing/invalid
  *   $request->params->getString('lang', 'en');        // optional — 'en' if absent
  *   $request->body->getInt('age', 0);                 // optional — 0 if absent OR blank
+ *
+ * addX() is the write counterpart — one per getX() (addString/addInt/
+ * addFloat/addBool/addArray/addJson/addMail/addPassword), fluent (each
+ * returns $this). For a controller putting something INTO the request
+ * for a #[PageController] view to read back out via the exact same
+ * getX() call, rather than a separate props/container-passing mechanism:
+ *
+ *   $request->body->addJson('posts', $this->postService->all());
+ *   return new Page($request, 'HomePage'); // HomePage.php: $request->body->getJson('posts', [])
  */
 final class InputBag implements ArrayAccess, Countable, IteratorAggregate
 {
@@ -157,6 +166,55 @@ final class InputBag implements ArrayAccess, Countable, IteratorAggregate
         return $this->resolveRequired($key, $required, static function (mixed $v): ?string {
             return is_string($v) && $v !== '' ? $v : null;
         }, 'a non-empty password');
+    }
+
+    public function addString(string $key, string $value): static
+    {
+        return $this->add($key, $value);
+    }
+
+    public function addInt(string $key, int $value): static
+    {
+        return $this->add($key, $value);
+    }
+
+    public function addFloat(string $key, float $value): static
+    {
+        return $this->add($key, $value);
+    }
+
+    public function addBool(string $key, bool $value): static
+    {
+        return $this->add($key, $value);
+    }
+
+    /** @param array<mixed> $value */
+    public function addArray(string $key, array $value): static
+    {
+        return $this->add($key, $value);
+    }
+
+    /** @param array<mixed> $value */
+    public function addJson(string $key, array $value): static
+    {
+        return $this->add($key, $value);
+    }
+
+    public function addMail(string $key, string $value): static
+    {
+        return $this->add($key, $value);
+    }
+
+    public function addPassword(string $key, string $value): static
+    {
+        return $this->add($key, $value);
+    }
+
+    private function add(string $key, mixed $value): static
+    {
+        $this->items[$key] = $value;
+
+        return $this;
     }
 
     /** @param callable(mixed): mixed $coerce */

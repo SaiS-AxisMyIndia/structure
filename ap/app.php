@@ -5,7 +5,7 @@ use App\Application;
 
 return [
     'name' => 'api-pro',
-    'version' => '1.0.0',
+    'version' => $_ENV['VERSION'] ?? '1.0.0',
     'env' => $_ENV['APP_ENV'] ?? 'local',
     'base_path' => __DIR__,
 

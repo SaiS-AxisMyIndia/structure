@@ -20,11 +20,6 @@ final class Application
         'build' => BuildCommand::class,
         'clean' => CleanCommand::class,
         'install' => InstallCommand::class,
-        'service:list' => ServiceListCommand::class,
-        'service:start' => ServiceStartCommand::class,
-        'service:stop' => ServiceStopCommand::class,
-        'service:restart' => ServiceRestartCommand::class,
-        'service:logs' => ServiceLogsCommand::class,
     ];
 
     public function __construct(private readonly string $basePath)
@@ -64,22 +59,13 @@ final class Application
 
           apc -v, --version                       app + every package's version
           apc start [host:port]                   clean + rebuild, then start PHP's built-in server (default host 127.0.0.1, port from .env's PORT, else 7070)
-          apc start [--<stage>] --<svc1> --<svc2> one server PER named service, each on its own .env.<svc>.<stage>'s PORT, together until Ctrl+C
           apc stop                                stop the ONE server a matching `apc start` began, wherever it's running
-          apc stop [--<stage>] --<svc1> --<svc2>  stop several named services at once — the multi-service form
           apc build                               regenerate runner/ in place, force-compile + cache the route table (deploy-time build step)
           apc build -c, --clean                   delete the whole runner/ folder first, then build as above
           apc clean                               delete the whole runner/ folder (and route cache) — no rebuild
-          apc ... --<stage>                       --local, --production, or --staging: which .env.<stage> to boot from (else real APP_ENV env var, else 'local')
-          apc ... --<service>                     any OTHER --name: which named microservice to boot as (.env.<service>.<stage-abbrev>) — see README
+          apc ... -f, --flavour <name>            which .env.<name> to boot from — local, production, staging, or any other name (else real APP_ENV env var, else 'local')
           apc install [module] [version]           no module (or `api-pro`): validate every module resolves (optionally against an expected app version)
           apc install <module> [version]           any other module: show its info (optionally validate its version)
-
-          apc service:list [--<stage>]                                every named service configured for a stage, running or not
-          apc service:start <service> [--<stage>]                     start ONE named service in the background and return immediately
-          apc service:stop <service> [--<stage>]                      stop ONE named service, wherever it's running
-          apc service:restart <service> [--<stage>]                   stop (if running) then start ONE named service
-          apc service:logs <service> [--lines=N] [--no-follow]        tail (and by default follow) that service's log file
 
         HELP;
     }

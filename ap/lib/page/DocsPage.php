@@ -1,15 +1,13 @@
 <?php
 
 use ApiPro\Page;
+use ApiPro\Runner;
 
 /**
  * api-pro's documentation — a real docs site (sticky sidebar nav +
- * sections), one level under the showcase homepage. $version arrived via
- * (new Page())->props(['version' => ...]) in SiteController::docs() — a
- * real local variable in this file's scope, nothing more.
- *
- * @var string $version
+ * sections), one level under the showcase homepage.
  */
+$version = Runner::get('version');
 ?>
 <!doctype html>
 <html lang="en">

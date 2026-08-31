@@ -22,20 +22,56 @@ use RuntimeException;
  *        ->script('console.log("loaded");');
  *
  * 2. A named PHP view file under `lib/page/` — the whole page (doctype
- *    included) is hand-written PHP+HTML there, with `props()` extracted
- *    into real local variables in that file's scope:
+ *    included) is hand-written PHP+HTML there:
  *
- *    return (new Page())
- *        ->view('HomePage')
- *        ->props(['posts' => $this->postService->all()]);
+ *    return new Page($request, 'HomePage'); // lib/page/HomePage.php
  *
- *    // lib/page/HomePage.php:
- *    <?php /** @var array $posts *\/ ?>
+ * No separate "props" step — `$request` (once set here) is the only
+ * thing available inside the view file's scope, a real local variable,
+ * nothing else. A view pulls whatever it needs straight from `$request`
+ * — the same InputBag getters a controller would use (see
+ * `Request::all()` for the whole thing as one `{query, body, params}`
+ * array). For a value that isn't real request data — something only a
+ * constructor-injected service can produce — the controller ADDS it to
+ * the request before returning, via InputBag's addX() methods (the
+ * write counterpart to getX() — see its own docblock), so the view
+ * reads it back through the exact same getX() call:
+ *
+ *    // a controller action:
+ *    public function home(Request $request): Page
+ *    {
+ *        $request->body->addJson('posts', $this->postService->all());
+ *        return new Page($request, 'HomePage');
+ *    }
+ *
+ *    // lib/page/HomePage.php
+ *    <?php
+ *    use ApiPro\Request;
+ *    /** @var Request $request *\/
+ *    $posts = $request->body->getJson('posts', []);
+ *    $name = $request->query->getString('name', 'World'); // real query field — optional, 'World' if absent
+ *    ?>
  *    <!doctype html>
  *    ...
  *    <?php foreach ($posts as $post): ?>
  *      <li><?= Page::html($post['text']) ?></li>
  *    <?php endforeach; ?>
+ *
+ * Validating real request data in the controller before returning works
+ * exactly the same way — do the InputBag calls there (so a missing/
+ * invalid required field 400s before the view ever runs) and just
+ * return the Page:
+ *
+ *    public function show(Request $request): Page
+ *    {
+ *        $id = $request->params->getInt('id'); // 400s here if missing/invalid
+ *        return new Page($request, 'UserPage');
+ *    }
+ *
+ * A validation failure (InputBag, or anything throwing `PacketFailed`)
+ * during a `#[PageController]` route's dispatch renders as a styled HTML
+ * error page (see `Page::failed()`), not a JSON body — Kernel::handle()
+ * decides which, from `Request::$isPage`.
  *
  * A controller action returning a `Page` gets it rendered and sent as
  * `text/html` automatically by `Kernel::handle()` — the same way
@@ -73,8 +109,22 @@ class Page
 
     private ?string $view = null;
 
-    /** @var array<string, mixed> */
-    private array $props = [];
+    /** Set only by failed() — bypasses view()/builder mode entirely; see render(). */
+    private ?string $raw = null;
+
+    /**
+     * Shorthand for `(new Page())->view($view)` when `$view` is given —
+     * PLUS, either way, `$request` (once set here) is what makes
+     * `$request` itself available inside the view file's scope (see
+     * renderView()). Both arguments are optional and independent: plain
+     * `new Page()` (the builder mode) still works exactly as before.
+     */
+    public function __construct(private readonly ?Request $request = null, ?string $view = null)
+    {
+        if ($view !== null) {
+            $this->view = $view;
+        }
+    }
 
     public function lang(string $lang): static
     {
@@ -128,38 +178,8 @@ class Page
     }
 
     /**
-     * Data made available inside the view file as real local variables
-     * (e.g. `props(['posts' => $list])` -> `$posts` inside HomePage.php)
-     * — merged with whatever was set before, so you can call this more
-     * than once. Only meaningful together with `view()`.
-     *
-     * @param array<string, mixed> $data
-     */
-    public function props(array $data): static
-    {
-        $this->props = [...$this->props, ...$data];
-
-        return $this;
-    }
-
-    /**
-     * Reads back whatever props() has accumulated so far — e.g. for a
-     * dev tool (AppViewer) that wants to show what a page was actually
-     * rendered with, without re-parsing its rendered HTML output.
-     *
-     * @return array<string, mixed>
-     */
-    public function getProps(): array
-    {
-        return $this->props;
-    }
-
-    /**
-     * The view name set via view(), or null if this Page is using the
-     * template builder (title()/body()/...) instead — e.g. for AppViewer
-     * to build a brand-new Page with the same view but different props,
-     * without needing to know in advance which view a given controller
-     * action happens to use.
+     * The view name set via view() (or the constructor), or null if this
+     * Page is using the template builder (title()/body()/...) instead.
      */
     public function getView(): ?string
     {
@@ -202,6 +222,10 @@ class Page
 
     public function render(): string
     {
+        if ($this->raw !== null) {
+            return $this->raw;
+        }
+
         if ($this->view !== null) {
             return $this->renderView();
         }
@@ -229,6 +253,77 @@ class Page
         return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     }
 
+    private const DEFAULT_FAILED_TEMPLATE = <<<'HTML'
+    <!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{status}} {{reason}}</title>
+    <style>
+      body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #111; color: #eee; }
+      .box { text-align: center; }
+      h1 { font-size: 1.5rem; margin-bottom: .5rem; }
+      p { color: #999; }
+    </style>
+    </head>
+    <body>
+    <div class="box">
+      <h1>{{status}} {{reason}}</h1>
+      <p>{{message}}</p>
+    </div>
+    </body>
+    </html>
+    HTML;
+
+    /**
+     * A styled HTML error page for a request-time failure ON A PAGE
+     * ROUTE — the same idea as `CrashPage`, but for an ordinary caught
+     * failure (validation, auth, a `PacketFailed` thrown anywhere) with
+     * its real HTTP status, not `CrashPage`'s always-503 boot failure.
+     * `Kernel::handle()` reaches for this instead of a JSON `Packet`
+     * whenever `Request::$isPage` is true — see its own comment for
+     * exactly when.
+     *
+     * Fills in **[lib/default.html](lib/default.html)**'s `{{status}}`/
+     * `{{reason}}`/`{{message}}` placeholders — the same
+     * customize-by-editing-a-file convention `lib/page.html` already
+     * uses for the builder-mode template (see loadTemplate()); falls
+     * back to an identical built-in template if that file is ever
+     * missing or deleted. Bypasses view()/builder mode entirely (see
+     * render()) — this is a COMPLETE document already, not a `{{body}}`
+     * fragment to wrap in another one.
+     */
+    public static function failed(int $status, string $message): self
+    {
+        $page = new self();
+        $page->raw = strtr($page->loadFailedTemplate(), [
+            '{{status}}' => (string) $status,
+            '{{reason}}' => self::statusText($status),
+            '{{message}}' => self::html($message),
+        ]);
+
+        return $page;
+    }
+
+    /** A short, human reason phrase for the common statuses a Page route actually fails with — falls back to plain "Error" for anything else. */
+    private static function statusText(int $status): string
+    {
+        return match ($status) {
+            400 => 'Bad Request',
+            401 => 'Unauthorized',
+            403 => 'Forbidden',
+            404 => 'Not Found',
+            405 => 'Method Not Allowed',
+            409 => 'Conflict',
+            422 => 'Unprocessable Entity',
+            429 => 'Too Many Requests',
+            500 => 'Internal Server Error',
+            503 => 'Service Unavailable',
+            default => 'Error',
+        };
+    }
+
     private function renderView(): string
     {
         $path = $this->basePath() . "/lib/page/{$this->view}.php";
@@ -237,18 +332,19 @@ class Page
             throw new RuntimeException("Page view [{$this->view}] not found — expected $path.");
         }
 
-        // A static closure so the view file's scope gets exactly the
-        // extracted props, nothing from $this — the same isolation a
-        // real templating engine gives you.
-        $render = static function (string $__viewPath, array $__props): string {
-            extract($__props, EXTR_SKIP);
+        // A static closure so the view file's scope gets exactly
+        // $request (if one was given — see the constructor), nothing
+        // from $this — the same isolation a real templating engine
+        // gives you.
+        $render = static function (string $__viewPath, array $__vars): string {
+            extract($__vars, EXTR_SKIP);
             ob_start();
             require $__viewPath;
 
             return (string) ob_get_clean();
         };
 
-        return $render($path, $this->props);
+        return $render($path, $this->request !== null ? ['request' => $this->request] : []);
     }
 
     private function loadTemplate(): string
@@ -264,6 +360,21 @@ class Page
         }
 
         return self::DEFAULT_TEMPLATE;
+    }
+
+    private function loadFailedTemplate(): string
+    {
+        $path = $this->basePath() . '/lib/default.html';
+
+        if (is_file($path)) {
+            $template = file_get_contents($path);
+
+            if ($template !== false) {
+                return $template;
+            }
+        }
+
+        return self::DEFAULT_FAILED_TEMPLATE;
     }
 
     private function basePath(): string

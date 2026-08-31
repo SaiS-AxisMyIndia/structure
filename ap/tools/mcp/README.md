@@ -64,11 +64,11 @@ Restart the client afterward — MCP servers are only started at launch.
 | `apc_start` | `apc start`, launched **detached** — the tool call returns as soon as the server has bound (or reports why it didn't); the server keeps running after. |
 | `apc_stop` | `apc stop` — stop a server `apc_start` began, wherever it's running. |
 
-`apc_build`/`apc_install`/`apc_start`/`apc_stop` all take optional
-`stage` (`local`/`production`/`staging`) and `service` (any named
-microservice) arguments — see the root README's "Microservices" section
-for what those mean. Leaving both out uses whatever `apc` itself
-defaults to (a real `APP_ENV` env var, else `local`).
+`apc_build`/`apc_install`/`apc_start`/`apc_stop` all take an optional
+`flavour` argument (`local`/`production`/`staging`, or any other name) —
+see the root README's "Flavours" section for what that means. Leaving it
+out uses whatever `apc` itself defaults to (a real `APP_ENV` env var,
+else `local`).
 
 ## Manually poking at it
 

@@ -84,19 +84,18 @@ class TesterController
     }
 
     /**
-     * Two independent signals, either one is enough: this app's own
-     * convention of keeping every page controller under Lib\Controllers
-     * (see e.g. Lib\Controllers\HomeController), or the method's own
-     * declared return type (Page::isReturnedBy() — generic, framework-
-     * level, no app-specific knowledge). The namespace check catches a
-     * page controller even if some future one doesn't declare `: Page`
-     * explicitly. AppViewer\AppViewerController uses this exact same
-     * pair of checks (inverted — to include, not exclude) to build its
-     * own list of exactly the routes this excludes.
+     * Page::isReturnedBy() (generic, framework-level, no app-specific
+     * knowledge) — reliable on its own now that RouteCompiler enforces
+     * the split at compile time: a #[PageController] action always
+     * declares Page, a #[RestController] action never does (see
+     * RouteCompiler::assertReturnType()), so this can't disagree with
+     * which attribute a route's controller actually carries.
+     * AppViewer\AppViewerController uses this exact same check
+     * (inverted — to include, not exclude) to build its own list of
+     * exactly the routes this excludes.
      */
     private static function isPageRoute(string $controllerClass, string $action): bool
     {
-        return str_starts_with($controllerClass, 'Lib\\Controllers\\')
-            || Page::isReturnedBy($controllerClass, $action);
+        return Page::isReturnedBy($controllerClass, $action);
     }
 }

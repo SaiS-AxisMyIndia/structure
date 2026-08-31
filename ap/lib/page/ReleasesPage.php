@@ -1,6 +1,7 @@
 <?php
 
 use ApiPro\Page;
+use ApiPro\Runner;
 
 /**
  * A simple releases/changelog page — one real version (whatever
@@ -8,9 +9,8 @@ use ApiPro\Page;
  * number), described honestly by what's actually in this codebase
  * right now rather than a fabricated multi-version history. Extend the
  * $releases list below as real versions actually ship.
- *
- * @var string $version
  */
+$version = Runner::get('version');
 $releases = [
     [
         'version' => $version,

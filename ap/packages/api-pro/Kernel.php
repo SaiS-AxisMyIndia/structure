@@ -72,9 +72,21 @@ class Kernel
         // caller set otherwise) becomes the real response status;
         // errorCode() is a body-level detail toPacket() already carries
         // (see Packet), not a transport-layer one.
+        //
+        // $request->isPage (set by Router the moment a route matches —
+        // still false if the route never matched at all, e.g. a 404)
+        // decides HTML vs JSON here: a #[PageController] route failing
+        // — a validation error, an expired session, anything throwing
+        // PacketFailed or otherwise — renders as a styled error page
+        // (Page::failed()) a browser can actually show, not a raw JSON
+        // body a visitor would otherwise see verbatim.
         try {
             $result = $this->router->dispatch($request);
         } catch (PacketFailed $failure) {
+            if ($request->isPage) {
+                Response::html(Page::failed($failure->httpStatus(), $failure->getMessage())->render(), $failure->httpStatus());
+            }
+
             Response::json($failure->toPacket(), $failure->httpStatus());
         } catch (\Throwable $e) {
             // Anything else escaping all the way up here is a genuine
@@ -93,6 +105,11 @@ class Kernel
             // and both write to the same prologs.log.
             Log::crash($e);
             $message = $this->env() === 'local' ? $e->getMessage() : 'Internal server error';
+
+            if ($request->isPage) {
+                Response::html(Page::failed(500, $message)->render(), 500);
+            }
+
             Response::json((new Packet())->failed($message), 500);
         }
 

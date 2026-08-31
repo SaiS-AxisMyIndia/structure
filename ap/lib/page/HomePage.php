@@ -1,21 +1,27 @@
 <?php
 
 use ApiPro\Page;
+use ApiPro\Request;
+use ApiPro\Runner;
 
 /**
  * api-pro's showcase homepage — a real website (nav, hero, feature grid,
- * quick start, footer), not a bare demo page. $posts/$version arrived via
- * (new Page())->props([...]) in SiteController::home() — both are real
- * local variables in this file's scope, nothing more. The "Live demo"
- * section at the bottom is the one part that's actually interactive: its
- * JS posts to the real POST /ap/v1/api-pro/posts endpoint (HomeController,
- * which stayed put — see its own docblock — while every actual page
- * moved to SiteController) and appends whatever comes back — proof this
- * is a working framework, not a mockup.
+ * quick start, footer), not a bare demo page. $request arrives via
+ * `new Page($request, 'HomePage')` in Lib\Controllers\HomeController::home()
+ * — $posts was added onto it there (`$request->body->addJson('posts', ...)`,
+ * InputBag's write counterpart to getJson()) since it comes from
+ * PostService, not the real request, and this file reads it back the
+ * exact same way it would any other body field. The "Live demo" section
+ * at the bottom is the one part that's actually interactive: its JS
+ * posts to the real POST /ap/v1/api-pro/posts endpoint
+ * (App\Controllers\HomeController — a different class, same short name,
+ * see its own docblock) and appends whatever comes back — proof this is
+ * a working framework, not a mockup.
  *
- * @var list<array{id: int, text: string, createdAt: string}> $posts
- * @var string $version
+ * @var Request $request
  */
+$posts = $request->body->getJson('posts', []);
+$version = Runner::get('version');
 ?>
 <!doctype html>
 <html lang="en">

@@ -23,14 +23,9 @@ final class ApiProTools
     /** @return list<array{name: string, description: string, inputSchema: array}> */
     public function definitions(): array
     {
-        $stage = [
+        $flavour = [
             'type' => 'string',
-            'enum' => ['local', 'production', 'staging'],
-            'description' => "Which stage to use — defaults to the real APP_ENV env var, else 'local'.",
-        ];
-        $service = [
-            'type' => 'string',
-            'description' => 'A named microservice instead of the flat/default app — needs a matching .env.<service>.<stage-abbreviation> file.',
+            'description' => "Which .env.<flavour> to boot from — 'local', 'production', 'staging', or any other name. Defaults to a real APP_ENV env var, else 'local'.",
         ];
 
         return [
@@ -39,19 +34,18 @@ final class ApiProTools
                 'description' => "List every compiled route in the app (method, path, controller, action) — the exact same table Router dispatches from and Tester's /tester/routes reads.",
                 'inputSchema' => [
                     'type' => 'object',
-                    'properties' => ['stage' => $stage, 'service' => $service],
+                    'properties' => ['flavour' => $flavour],
                     'additionalProperties' => false,
                 ],
             ],
             [
                 'name' => 'apc_build',
-                'description' => "Run `apc build` — regenerates runner/ in place, force-compiles + caches the route table, and syncs the database schema for every #[ProEntity] class (per that stage's TABLE_WRITE). Pass clean=true for `apc build --clean` (deletes the whole runner/ folder first).",
+                'description' => "Run `apc build` — regenerates runner/ in place, force-compiles + caches the route table, and syncs the database schema for every #[ProEntity] class (per that flavour's TABLE_WRITE). Pass clean=true for `apc build --clean` (deletes the whole runner/ folder first).",
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
                         'clean' => ['type' => 'boolean', 'description' => 'Delete the whole runner/ folder first, then build.'],
-                        'stage' => $stage,
-                        'service' => $service,
+                        'flavour' => $flavour,
                     ],
                     'additionalProperties' => false,
                 ],
@@ -64,8 +58,7 @@ final class ApiProTools
                     'properties' => [
                         'module' => ['type' => 'string', 'description' => "A packages/<name> to check instead of the whole app — e.g. 'pro-sql'."],
                         'version' => ['type' => 'string', 'description' => 'An expected version to validate against.'],
-                        'stage' => $stage,
-                        'service' => $service,
+                        'flavour' => $flavour,
                     ],
                     'additionalProperties' => false,
                 ],
@@ -81,9 +74,8 @@ final class ApiProTools
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
-                        'host_port' => ['type' => 'string', 'description' => "e.g. \"8081\" or \"127.0.0.1:8081\" — defaults to that stage's own PORT, else 7070."],
-                        'stage' => $stage,
-                        'service' => $service,
+                        'host_port' => ['type' => 'string', 'description' => "e.g. \"8081\" or \"127.0.0.1:8081\" — defaults to that flavour's own PORT, else 7070."],
+                        'flavour' => $flavour,
                     ],
                     'additionalProperties' => false,
                 ],
@@ -93,7 +85,7 @@ final class ApiProTools
                 'description' => "Stop a server a matching apc_start began, wherever it's running — via `apc stop`.",
                 'inputSchema' => [
                     'type' => 'object',
-                    'properties' => ['stage' => $stage, 'service' => $service],
+                    'properties' => ['flavour' => $flavour],
                     'additionalProperties' => false,
                 ],
             ],
@@ -129,8 +121,7 @@ final class ApiProTools
         return $this->exec([
             PHP_BINARY,
             __DIR__ . '/list-routes.php',
-            (string) ($arguments['stage'] ?? ''),
-            (string) ($arguments['service'] ?? ''),
+            (string) ($arguments['flavour'] ?? ''),
         ]);
     }
 
@@ -143,7 +134,7 @@ final class ApiProTools
             $args[] = '--clean';
         }
 
-        return $this->runApc([...$args, ...$this->stageServiceFlags($arguments)]);
+        return $this->runApc([...$args, ...$this->flavourFlags($arguments)]);
     }
 
     /** @param array<string, mixed> $arguments */
@@ -159,13 +150,13 @@ final class ApiProTools
             }
         }
 
-        return $this->runApc([...$args, ...$this->stageServiceFlags($arguments)]);
+        return $this->runApc([...$args, ...$this->flavourFlags($arguments)]);
     }
 
     /** @param array<string, mixed> $arguments */
     private function apcStop(array $arguments): string
     {
-        return $this->runApc(['stop', ...$this->stageServiceFlags($arguments)]);
+        return $this->runApc(['stop', ...$this->flavourFlags($arguments)]);
     }
 
     /**
@@ -186,7 +177,7 @@ final class ApiProTools
             $args[] = (string) $arguments['host_port'];
         }
 
-        $args = [...$args, ...$this->stageServiceFlags($arguments)];
+        $args = [...$args, ...$this->flavourFlags($arguments)];
 
         // A single simple command, deliberately no `cd X &&` prefix (both
         // PHP_BINARY and the apc path below are already absolute, so
@@ -213,8 +204,8 @@ final class ApiProTools
         $pid = (int) trim((string) shell_exec($command));
 
         // Give it a moment to either bind successfully or fail fast (a
-        // port already in use, DEFAULT_SERVICE=false, a bad DB
-        // connection during the schema-sync step, ...) before reporting.
+        // port already in use, a bad DB connection during the
+        // schema-sync step, ...) before reporting.
         usleep(1_500_000);
 
         $alive = $pid > 0 && posix_kill($pid, 0);
@@ -229,19 +220,9 @@ final class ApiProTools
     }
 
     /** @param array<string, mixed> $arguments @return list<string> */
-    private function stageServiceFlags(array $arguments): array
+    private function flavourFlags(array $arguments): array
     {
-        $flags = [];
-
-        if (isset($arguments['stage'])) {
-            $flags[] = '--' . $arguments['stage'];
-        }
-
-        if (isset($arguments['service'])) {
-            $flags[] = '--' . $arguments['service'];
-        }
-
-        return $flags;
+        return isset($arguments['flavour']) ? ['--flavour', (string) $arguments['flavour']] : [];
     }
 
     /** @param list<string> $args */

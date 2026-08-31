@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Lib\Controllers;
 
 use ApiPro\Attributes\GetMapping;
-use ApiPro\Attributes\RestController;
+use ApiPro\Attributes\PageController;
 use ApiPro\Page;
 use ApiPro\Request;
-use ApiPro\Runner;
 use App\Services\PostService;
 
 /**
@@ -21,7 +20,7 @@ use App\Services\PostService;
  * Identical short class name, different namespace, genuinely different
  * job — don't confuse the two.
  */
-#[RestController(prefix: '/site')]
+#[PageController(prefix: '/site')]
 class HomeController
 {
     public function __construct(private readonly PostService $postService)
@@ -31,13 +30,9 @@ class HomeController
     #[GetMapping]
     public function home(Request $request): Page
     {
-        // ->title()/->body()/etc. are ignored once ->view() is set — the
-        // view file itself is the whole page, title tag included.
-        return (new Page())
-            ->view('HomePage')
-            ->props([
-                'posts' => $this->postService->all(),
-                'version' => Runner::get('version'),
-            ]);
+        $name = $request->body->getString('name');
+        $request->body->addJson('posts', $this->postService->all());
+
+        return new Page($request, 'HomePage');
     }
 }

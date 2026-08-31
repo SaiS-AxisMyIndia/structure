@@ -38,59 +38,42 @@ final class Runner
     private static ?array $routes = null;
 
     /**
-     * The three real stages this app deploys as — a closed set (not "any
-     * name"): `apc`'s own flag parsing relies on this list to tell a
-     * --<stage> flag apart from a --<service> one (anything NOT in this
-     * list is a service name, never a stage). A real APP_ENV process env
-     * var isn't restricted to these three, though — see envFilePath()'s
-     * own comment.
+     * The real environments this app knows about out of the box — not a
+     * closed/enforced set: a real APP_ENV process env var, or an explicit
+     * -f/--flavour apc flag, is free to name anything else too (see
+     * envFilePath()'s own comment). Purely a documented default list.
      */
     public const STAGES = ['local', 'production', 'staging'];
 
     /**
-     * Short form used only in a per-service filename (.env.<service>.dev,
-     * not .env.<service>.local) — kept short there since a service's own
-     * name is already part of that filename too. The flat/default file
-     * (no service) keeps the full spelled-out name (.env.local) since
-     * it's the only word in it.
-     */
-    private const STAGE_ABBREVIATIONS = ['local' => 'dev', 'production' => 'prod', 'staging' => 'stag'];
-
-    /**
-     * @param string|null $stage which stage to boot as — 'local',
+     * "Flavour" is this app's word for "which environment" — env and
+     * flavour mean the same thing here, there's no second axis. Booting
+     * as a given flavour means, and only ever means, loading that one
+     * .env.<flavour> file (see envFilePath()).
+     *
+     * @param string|null $flavour which flavour to boot as — 'local',
      *        'production', 'staging' (see self::STAGES), or any other
      *        name a real APP_ENV happens to carry. There's no plain .env
-     *        fallback: this app always knows which environment it's
-     *        running as explicitly (an --<stage> apc flag, or a real
-     *        APP_ENV set in the actual process environment) rather than
+     *        fallback: this app always knows which flavour it's running
+     *        as explicitly (a -f/--flavour apc flag, or a real APP_ENV
+     *        set in the actual process environment) rather than
      *        implicitly via whichever loose .env file happens to be
      *        sitting on disk. Defaults to a real APP_ENV env var if one
      *        is set, else 'local'.
-     * @param string|null $service which named microservice to boot as —
-     *        null for the flat/default app (see envFilePath()). Defaults
-     *        to a real APC_SERVICE env var if one is set (see
-     *        ServiceProcess::spawn(), which sets this for every child it
-     *        starts), else null.
      */
-    public static function boot(string $basePath, ?string $stage = null, ?string $service = null): void
+    public static function boot(string $basePath, ?string $flavour = null): void
     {
         if (self::$config !== null) {
             return; // already booted this request — never redo the work
         }
 
-        $stage ??= getenv('APP_ENV') ?: 'local';
-        $service ??= getenv('APC_SERVICE') ?: null;
+        $flavour ??= getenv('APP_ENV') ?: 'local';
 
-        self::loadEnvFile(self::envFilePath($basePath, $stage, $service));
-        $_ENV['APP_ENV'] ??= $stage;
+        self::loadEnvFile(self::envFilePath($basePath, $flavour));
+        $_ENV['APP_ENV'] ??= $flavour;
 
         $config = require "$basePath/app.php";
         $config['base_path'] ??= $basePath;
-        // Exposed so anything needing to know "is this a named service,
-        // and which one" (StartCommand's DEFAULT_SERVICE guard,
-        // StopCommand's pidfile key, ...) can just ask Runner::get('service')
-        // instead of re-deriving it from getenv('APC_SERVICE') itself.
-        $config['service'] ??= $service;
 
         // Per-module config lives in runner/, one file per module, keyed
         // by that file's own name — e.g. Runner::get('prosql') for
@@ -335,82 +318,14 @@ final class Runner
     }
 
     /**
-     * Which .env file a (stage, service) pair actually means — the one
-     * place this app's env-file naming convention lives.
-     *
-     * No service (the flat/default app): .env.<stage>, spelled out in
-     * full (.env.local, .env.production, .env.staging) — the closed set
-     * in self::STAGES, though a real APP_ENV happens to be free to name
-     * anything else here too (see boot()'s own comment).
-     *
-     * A named service: .env.<service>.<stage-abbreviation> — e.g.
-     * .env.auth.dev, .env.billing.prod — short-formed via
-     * STAGE_ABBREVIATIONS since the service's own name is already
-     * carrying part of the identity in that filename.
+     * Which .env file a flavour actually means — the one place this
+     * app's env-file naming convention lives: always .env.<flavour>,
+     * spelled out in full (.env.local, .env.production, .env.staging, or
+     * .env.<anything else> a real APP_ENV happens to carry).
      */
-    public static function envFilePath(string $basePath, string $stage, ?string $service = null): string
+    public static function envFilePath(string $basePath, string $flavour): string
     {
-        if ($service === null) {
-            return "$basePath/.env.$stage";
-        }
-
-        return "$basePath/.env.$service." . self::stageAbbreviation($stage);
-    }
-
-    /**
-     * The short form envFilePath() uses in a per-service filename (see
-     * STAGE_ABBREVIATIONS's own comment) — exposed publicly so anything
-     * that needs to go the OTHER way, from a stage to a filename
-     * fragment, without re-deriving the mapping itself (e.g.
-     * ServiceListCommand globbing `.env.*.<abbreviation>` to discover
-     * which named services exist for the current stage).
-     */
-    public static function stageAbbreviation(string $stage): string
-    {
-        return self::STAGE_ABBREVIATIONS[$stage] ?? $stage;
-    }
-
-    /**
-     * Reads a .env file's KEY=value pairs WITHOUT touching $_ENV — used
-     * to peek at another service's own SERVICE/PORT (or anything else)
-     * ahead of spawning it as a separate process, where loading it into
-     * THIS process's $_ENV would be meaningless (it's a different
-     * process's env, not this one's) or, worse, wrong (this process may
-     * already be a different service itself). Real per-request config
-     * loading is boot()'s job, via loadEnvFile() above, only ever into
-     * the current process's own $_ENV.
-     *
-     * @return array<string, string>
-     */
-    public static function peekEnv(string $basePath, string $stage, ?string $service = null): array
-    {
-        return self::parseEnvFile(self::envFilePath($basePath, $stage, $service));
-    }
-
-    /**
-     * Every named service configured for a stage — one entry per
-     * .env.<service>.<stage-abbreviation> file sitting next to app.php
-     * (see envFilePath()), sorted alphabetically. Pure filesystem
-     * discovery — safe to call before boot(). Used by `apc
-     * service:list` (see ServiceListCommand) and by the `apc` script's
-     * own --all flag (`apc start --all`, `apc stop --all`) to expand
-     * "every service" without the caller having to name each one.
-     *
-     * @return list<string>
-     */
-    public static function namedServices(string $basePath, string $stage): array
-    {
-        $suffix = '.' . self::stageAbbreviation($stage);
-        $names = [];
-
-        foreach (glob("$basePath/.env.*$suffix") ?: [] as $path) {
-            // ".env.<service>.<abbreviation>" -> "<service>"
-            $names[] = substr(basename($path), strlen('.env.'), -strlen($suffix));
-        }
-
-        sort($names);
-
-        return $names;
+        return "$basePath/.env.$flavour";
     }
 
     /** @return array<string, string> */

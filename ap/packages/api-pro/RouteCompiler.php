@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace ApiPro;
 
 use ApiPro\Attributes\Middleware;
+use ApiPro\Attributes\PageController;
 use ApiPro\Attributes\RequestMapping;
 use ApiPro\Attributes\RestController;
+use InvalidArgumentException;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionMethod;
@@ -14,11 +16,16 @@ use ReflectionNamedType;
 use ReflectionObject;
 
 /**
- * Turns one controller's #[RestController]/#[GetMapping]/#[Middleware]
- * attributes into a plain, cacheable route table — the Reflection work
- * that used to happen inside Router on every boot now happens here, once,
- * driven by Runner (which can also write the result to a file so it
- * survives across requests — see Runner::routes()).
+ * Turns one controller's #[RestController]/#[PageController]/
+ * #[GetMapping]/#[Middleware] attributes into a plain, cacheable route
+ * table — the Reflection work that used to happen inside Router on
+ * every boot now happens here, once, driven by Runner (which can also
+ * write the result to a file so it survives across requests — see
+ * Runner::routes()). A class carries exactly one of #[RestController]/
+ * #[PageController] — never both, never neither and still expect to be
+ * routed — and every routed action on it must match: Page only for
+ * #[PageController], never for #[RestController] (see
+ * assertReturnType()).
  *
  * Every entry this returns is plain data — no objects, no closures — so
  * it round-trips through var_export()/a cache file cleanly:
@@ -29,9 +36,10 @@ use ReflectionObject;
  *       'controller' => HealthController::class,
  *       'action' => 'status',
  *       'path' => '/api/health',
+ *       'isPage' => false, // true for a #[PageController] route — see Request::$isPage / Kernel::handle()
  *       'comment' => null, // or a Tester::comment("...") literal found in the method's source — see commentOf()
  *       'fields' => [
- *           ['source' => 'body', 'key' => 'mail', 'type' => 'Email', 'required' => true],
+ *           ['source' => 'body', 'key' => 'mail', 'type' => 'Email', 'required' => true, 'kind' => 'get'],
  *       ],
  *       'middleware' => [
  *           ['class' => SessionMiddleware::class, 'overrides' => ['mandatory' => true]],
@@ -47,17 +55,26 @@ use ReflectionObject;
  */
 final class RouteCompiler
 {
-    /** @return list<array{method: string, regex: string, controller: class-string, action: string, path: string, comment: string|null, middleware: list<array{class: class-string, overrides: array<string, mixed>}>}> */
+    /** @return list<array{method: string, regex: string, controller: class-string, action: string, path: string, isPage: bool, prefix: string, comment: string|null, fields: list<array{source: string, key: string, type: string, required: bool, kind: string}>, middleware: list<array{class: class-string, overrides: array<string, mixed>}>}> */
     public static function compile(string $controllerClass, string $modulePrefix = ''): array
     {
         $reflector = new ReflectionClass($controllerClass);
-        $classAttributes = $reflector->getAttributes(RestController::class);
+        $restAttributes = $reflector->getAttributes(RestController::class);
+        $pageAttributes = $reflector->getAttributes(PageController::class);
 
-        if ($classAttributes === []) {
+        if ($restAttributes === [] && $pageAttributes === []) {
             return [];
         }
 
-        $prefix = $modulePrefix . $classAttributes[0]->newInstance()->prefix;
+        if ($restAttributes !== [] && $pageAttributes !== []) {
+            throw new InvalidArgumentException(
+                "$controllerClass carries both #[RestController] and #[PageController] — pick one.",
+            );
+        }
+
+        $isPageController = $pageAttributes !== [];
+        $classAttribute = $isPageController ? $pageAttributes[0] : $restAttributes[0];
+        $prefix = $modulePrefix . $classAttribute->newInstance()->prefix;
         $classMiddleware = self::middlewareOf($reflector->getAttributes(Middleware::class));
 
         $routes = [];
@@ -66,6 +83,8 @@ final class RouteCompiler
             $mappings = $method->getAttributes(RequestMapping::class, ReflectionAttribute::IS_INSTANCEOF);
 
             foreach ($mappings as $mappingAttribute) {
+                self::assertReturnType($controllerClass, $method, $isPageController);
+
                 $mapping = $mappingAttribute->newInstance();
                 $path = self::normalize($prefix . $mapping->path);
                 $methodMiddleware = self::middlewareOf($method->getAttributes(Middleware::class));
@@ -76,6 +95,15 @@ final class RouteCompiler
                     'controller' => $controllerClass,
                     'action' => $method->getName(),
                     'path' => $path,
+                    // Known for free, at compile time, from which
+                    // attribute the class carries — the same boolean
+                    // assertReturnType() just enforced against this
+                    // very method. Router sets Request::$isPage from
+                    // this the moment a route matches, so Kernel can
+                    // tell a Page-route failure apart from a JSON one
+                    // (see Kernel::handle()) without re-deriving it via
+                    // Reflection at request time.
+                    'isPage' => $isPageController,
                     // The controller's own declared prefix (module prefix +
                     // its #[RestController(prefix: ...)]), before the
                     // method's own mapping path is appended. Exact, real
@@ -95,6 +123,41 @@ final class RouteCompiler
         }
 
         return $routes;
+    }
+
+    /**
+     * The one rule tying #[PageController]/#[RestController] to Page vs
+     * everything else: a #[PageController] action MUST declare Page (or
+     * Page as one member of a union) as its return type — Tester,
+     * AppViewer, and Kernel::handle() all trust that without re-checking
+     * it themselves; a #[RestController] action must NEVER declare it —
+     * Page rendering belongs to #[PageController] alone, Packet (or
+     * array, or nothing) to #[RestController]. Checked once here, at
+     * compile time — fails loudly, at `apc build`/the first request that
+     * compiles this controller — rather than as a silent runtime
+     * surprise. Uses the exact same reflection Page::isReturnedBy()
+     * already exposes for Tester/AppViewer's own route filtering, so
+     * this and their filtering can never disagree.
+     */
+    private static function assertReturnType(string $controllerClass, ReflectionMethod $method, bool $isPageController): void
+    {
+        $returnsPage = Page::isReturnedBy($controllerClass, $method->getName());
+
+        if ($isPageController && !$returnsPage) {
+            throw new InvalidArgumentException(sprintf(
+                '%s::%s() is #[PageController] but its return type is not Page — a PageController action must return Page.',
+                $controllerClass,
+                $method->getName(),
+            ));
+        }
+
+        if (!$isPageController && $returnsPage) {
+            throw new InvalidArgumentException(sprintf(
+                '%s::%s() is #[RestController] but declares Page as its return type — Page is only allowed on a #[PageController]; return Packet instead.',
+                $controllerClass,
+                $method->getName(),
+            ));
+        }
     }
 
     /**
@@ -119,22 +182,31 @@ final class RouteCompiler
      * Every `$request->body->getX(...)`/`->query->getX(...)`/
      * `->params->getX(...)` call found in the method's own source — the
      * same InputBag getters documented in "Validating input with
-     * InputBag" — reduced to what the Tester UI needs to render a real
-     * field instead of a freeform textbox. `params` calls (e.g.
-     * `$request->params->getInt('id')`) feed the *same* path-param input
-     * Tester already shows for every `{id}` in the route — this just
-     * gives that input its real type/required badge instead of a blind
-     * "always required, no type" guess, when the controller actually
-     * validates it.
+     * InputBag" — reduced to what the Tester/AppViewer UIs need to
+     * render a real field instead of a freeform textbox. `params` calls
+     * (e.g. `$request->params->getInt('id')`) feed the *same* path-param
+     * input Tester already shows for every `{id}` in the route — this
+     * just gives that input its real type/required badge instead of a
+     * blind "always required, no type" guess, when the controller
+     * actually validates it.
      *
-     * required mirrors InputBag's own rule exactly: for getMail/
-     * getPassword, required unless the second argument is literally
-     * `false`; for every other getter, required unless a second argument
-     * is given (anything other than a bare `null`). Only a call whose key
-     * is a plain string literal is recognized — same limitation as
-     * Tester::comment(): this reads source text, it doesn't evaluate it.
+     * An `addX(...)` call (InputBag's write counterpart — see its own
+     * docblock) is picked up the same way but tagged `kind: 'add'`
+     * instead of `'get'`, `required: false` always (there's nothing to
+     * require — the controller provides it, not the caller): AppViewer
+     * shows these as a plain read-only mention (e.g. "posts, provided by
+     * the controller"), never an editable input, since nothing a caller
+     * types would ever reach it.
      *
-     * @return list<array{source: string, key: string, type: string, required: bool}>
+     * required (for a 'get' field) mirrors InputBag's own rule exactly:
+     * for getMail/getPassword, required unless the second argument is
+     * literally `false`; for every other getter, required unless a
+     * second argument is given (anything other than a bare `null`). Only
+     * a call whose key is a plain string literal is recognized — same
+     * limitation as Tester::comment(): this reads source text, it
+     * doesn't evaluate it.
+     *
+     * @return list<array{source: string, key: string, type: string, required: bool, kind: string}>
      */
     private static function fieldsOf(ReflectionMethod $method): array
     {
@@ -214,7 +286,7 @@ final class RouteCompiler
 
     private const BAG_SOURCES = ['body', 'query', 'params'];
 
-    /** @return list<array{source: string, key: string, type: string, required: bool}> */
+    /** @return list<array{source: string, key: string, type: string, required: bool, kind: string}> */
     private static function extractFieldCalls(string $source, string $requestParam): array
     {
         $tokens = self::meaningfulTokens($source);
@@ -242,8 +314,11 @@ final class RouteCompiler
             }
 
             $methodToken = $tokens[$i + 4] ?? null;
+            $method = is_array($methodToken) && $methodToken[0] === T_STRING ? $methodToken[1] : null;
+            $isAdd = $method !== null && str_starts_with($method, 'add');
+            $isGet = $method !== null && str_starts_with($method, 'get');
 
-            if (!(is_array($methodToken) && $methodToken[0] === T_STRING && str_starts_with($methodToken[1], 'get'))) {
+            if (!$isAdd && !$isGet) {
                 continue;
             }
 
@@ -263,13 +338,12 @@ final class RouteCompiler
                 continue; // a dynamic/non-literal key — nothing statically knowable to show
             }
 
-            $getter = $methodToken[1];
-
             $fields[] = [
                 'source' => $bagToken[1],
                 'key' => self::unescapeLiteral($keyToken[1]),
-                'type' => self::fieldType($getter),
-                'required' => self::isFieldRequired($getter, $call['args'][1] ?? null),
+                'type' => self::fieldType($method),
+                'required' => $isAdd ? false : self::isFieldRequired($method, $call['args'][1] ?? null),
+                'kind' => $isAdd ? 'add' : 'get',
             ];
         }
 
@@ -321,18 +395,19 @@ final class RouteCompiler
         return null; // unbalanced — a truncated/malformed source slice
     }
 
-    private static function fieldType(string $getter): string
+    /** Normalizes by the part after the 'get'/'add' prefix (both 3 chars) — one map for InputBag's whole getX()/addX() pair, not two. */
+    private static function fieldType(string $method): string
     {
-        return match ($getter) {
-            'getString' => 'String',
-            'getInt' => 'Integer',
-            'getFloat' => 'Float',
-            'getBool' => 'Boolean',
-            'getArray' => 'Array',
-            'getJson' => 'JSON',
-            'getMail' => 'Email',
-            'getPassword' => 'Password',
-            default => ucfirst(substr($getter, 3)),
+        return match (substr($method, 3)) {
+            'String' => 'String',
+            'Int' => 'Integer',
+            'Float' => 'Float',
+            'Bool' => 'Boolean',
+            'Array' => 'Array',
+            'Json' => 'JSON',
+            'Mail' => 'Email',
+            'Password' => 'Password',
+            default => substr($method, 3),
         };
     }
 

@@ -1,6 +1,7 @@
 <?php
 
 use ApiPro\Page;
+use ApiPro\Runner;
 
 /**
  * A simple contact page. There's no real organization behind this demo
@@ -9,9 +10,8 @@ use ApiPro\Page;
  * exist. example.com is IANA/RFC-2606-reserved specifically for
  * documentation like this; swap it for a real address if you deploy
  * this as an actual project with someone to contact.
- *
- * @var string $version
  */
+$version = Runner::get('version');
 ?>
 <!doctype html>
 <html lang="en">

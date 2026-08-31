@@ -1,16 +1,17 @@
 <?php
 
 use ApiPro\Page;
+use ApiPro\Runner;
 
 /**
  * A simple "what this project is" page — describes api-pro itself
  * honestly (a demo/learning framework, not a real product with a real
  * team behind it), matching the tone already established in
  * README.md/HomePage.php rather than inventing marketing claims this
- * project can't back up.
- *
- * @var string $version
+ * project can't back up. No props/$request needed here — Runner::get()
+ * is a plain static call, available anywhere, not just a controller.
  */
+$version = Runner::get('version');
 ?>
 <!doctype html>
 <html lang="en">

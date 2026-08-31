@@ -23,6 +23,7 @@ class Router
      *     controller: class-string,
      *     action: string,
      *     path: string,
+     *     isPage: bool,
      *     middleware: list<array{class: class-string, overrides: array<string, mixed>}>,
      * }>>
      */
@@ -78,6 +79,13 @@ class Router
                     ),
                 ));
 
+                // Set the moment a route matches, same as $params above —
+                // Kernel::handle() reads this if the action (or a
+                // middleware, or InputBag validation inside it) throws,
+                // to render a styled HTML error page instead of JSON for
+                // a #[PageController] route. See Request::$isPage.
+                $request->isPage = $route['isPage'];
+
                 $action = fn (Request $request): mixed => $this->container
                     ->make($route['controller'])
                     ->{$route['action']}($request);
@@ -85,6 +93,19 @@ class Router
                 return $this->runPipeline($route['middleware'], $request, $action);
             }
         }
+
+        // No route matched at all — `$request->isPage` is still its
+        // default `false` here (never a real route's own answer; the
+        // loop above never reached one), so it's the wrong signal for
+        // "should this 404 render as HTML". The best one left is what
+        // the client's own Accept header actually asked for: a real
+        // browser's own top-level navigation (typing the URL, clicking
+        // a link) always sends `text/html` first, so a mistyped/removed
+        // page's own 404 still renders as a page, not raw JSON dropped
+        // in the middle of a browser tab. An XHR/fetch/curl call
+        // doesn't send that unless it explicitly wants HTML too, so a
+        // genuine API 404 is unaffected. See Request::wantsHtml().
+        $request->isPage = $request->wantsHtml();
 
         // The unmatched path used to ride along as $data ({"path": "..."})
         // — PacketFailed no longer carries data at all (that's exclusively

@@ -7,7 +7,8 @@
 <style>
   :root {
     --bg: #0f1720; --panel: #182430; --panel-2: #1e2c3a; --border: #2b3a4a;
-    --text: #e6edf3; --muted: #8b9bab; --accent: #4da3ff; --get: #2f9e5b;
+    --text: #e6edf3; --muted: #8b9bab; --accent: #4da3ff;
+    --get: #2f9e5b; --post: #c98a1a; --put: #3d7fc9; --patch: #8b5cf6; --delete: #d64545;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
@@ -28,7 +29,10 @@
   .route { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 6px; cursor: pointer; margin-bottom: 2px; }
   .route:hover { background: var(--panel-2); }
   .route.active { background: var(--panel-2); outline: 1px solid var(--accent); }
-  .method { font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 4px; color: #fff; background: var(--get); min-width: 40px; text-align: center; }
+  .method { font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 4px; color: #fff; min-width: 40px; text-align: center; }
+  .method-GET { background: var(--get); } .method-POST { background: var(--post); }
+  .method-PUT { background: var(--put); } .method-PATCH { background: var(--patch); }
+  .method-DELETE { background: var(--delete); }
   .path { font-size: 13px; font-family: ui-monospace, monospace; word-break: break-all; }
   .badge { font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; margin-left: auto; }
   .main { padding: 24px; overflow-y: auto; }
@@ -43,12 +47,28 @@
   .icon-btn { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 12px; font-family: ui-monospace, monospace; font-weight: 600; cursor: pointer; flex-shrink: 0; }
   .icon-btn:hover { color: var(--text); border-color: var(--accent); }
   .icon-btn.active { background: var(--accent); color: #06192e; border-color: var(--accent); }
-  .props-panel { margin: 0 0 16px; }
-  .props-panel.hidden { display: none; }
-  .props-editor { display: block; width: 100%; height: 220px; background: #0a1119; border: 1px solid var(--border); border-radius: 6px; padding: 14px; font-size: 12px; font-family: ui-monospace, monospace; color: var(--text); resize: vertical; margin-bottom: 8px; }
-  .props-editor:focus { outline: none; border-color: var(--accent); }
-  .props-icons { display: flex; align-items: center; gap: 8px; }
-  .props-status { color: var(--muted); font-size: 12px; }
+  /* Border button — outlined, transparent, secondary weight (Reset). */
+  .btn-outline { background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 7px 16px; font-size: 12px; font-family: ui-monospace, monospace; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+  .btn-outline:hover { color: var(--text); border-color: var(--accent); }
+  /* Elevated button — solid fill + shadow, the row's primary action (Load). */
+  .btn-elevated { background: var(--accent); color: #06192e; border: none; border-radius: 6px; padding: 7px 16px; font-size: 12px; font-family: ui-monospace, monospace; font-weight: 700; cursor: pointer; flex-shrink: 0; box-shadow: 0 2px 6px rgba(77, 163, 255, .35); }
+  .btn-elevated:hover { opacity: .9; }
+  .request-panel { margin: 0 0 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .request-panel.hidden { display: none; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 14px 0 4px; }
+  label:first-child { margin-top: 0; }
+  .field { margin-bottom: 8px; }
+  .field-label { display: flex; align-items: baseline; gap: 6px; margin: 0 0 4px; }
+  .field-label .key { font-family: ui-monospace, monospace; font-size: 12px; color: var(--text); }
+  .field-required { color: var(--delete); font-weight: 700; font-size: 13px; }
+  .field-optional { color: var(--muted); font-size: 11px; }
+  .field-type { font-family: ui-monospace, monospace; font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 0 5px; border-radius: 3px; margin-left: auto; }
+  input[type=text], .request-panel textarea { width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 13px; }
+  .request-panel textarea { min-height: 70px; resize: vertical; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .request-actions { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+  .request-status { color: var(--muted); font-size: 12px; flex: 1; }
   .frame-wrap iframe { width: 100%; height: calc(100vh - 280px); min-height: 400px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
 </style>
 </head>
@@ -65,6 +85,7 @@
 </div>
 
 <script>
+const FIELDS_KEY_PREFIX = 'apc_appviewer_fields:'; // + routeKey(route) per page
 let routes = [];
 let activeKey = null;
 const collapsedGroups = new Set();
@@ -82,6 +103,27 @@ function el(tag, attrs = {}, children = []) {
 
 function routeKey(route) {
   return route.method + ' ' + route.path;
+}
+
+function pathParams(path) {
+  return [...path.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
+}
+
+// Every value typed into a page's Request panel — path params, query
+// fields, body fields alike — is cached per-route, the same idea as
+// Tester's own field cache, so reopening the same page later restores
+// what was last filled in instead of starting blank.
+function loadFieldCache(route) {
+  try {
+    const raw = localStorage.getItem(FIELDS_KEY_PREFIX + routeKey(route));
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveFieldCache(route, cache) {
+  localStorage.setItem(FIELDS_KEY_PREFIX + routeKey(route), JSON.stringify(cache));
 }
 
 // Same grouping idea as Tester's list — one collapsible group per
@@ -135,7 +177,7 @@ function renderList() {
     groupRoutes.forEach(route => {
       const key = routeKey(route);
       const row = el('div', { class: 'route' + (activeKey === key ? ' active' : '') });
-      row.appendChild(el('span', { class: 'method', text: route.method }));
+      row.appendChild(el('span', { class: 'method method-' + route.method, text: route.method }));
       row.appendChild(el('span', { class: 'path', text: route.path }));
       if (route.middleware.length) row.appendChild(el('span', { class: 'badge', text: route.middleware.length + ' mw' }));
       row.onclick = () => { activeKey = key; renderList(); renderPanel(route); };
@@ -147,31 +189,97 @@ function renderList() {
   });
 }
 
-async function fetchLiveProps(route) {
-  const url = '/app-viewer/props?controller=' + encodeURIComponent(route.controllerClass) + '&action=' + encodeURIComponent(route.action);
-  const res = await fetch(url);
-  const body = await res.json();
+// One labeled input per detected field (name, required "*" or
+// "(optional)", and its InputBag type as a small badge) — the exact
+// same shape/behavior as Tester's own renderFieldInputs(), reused here
+// so a page's Request panel looks and behaves identically to an
+// endpoint's own request form in Tester. `namespace` keeps query/body
+// cache keys from colliding when the same field name is detected in
+// both bags.
+function renderFieldInputs(panel, fields, legend, fieldCache, namespace, persist) {
+  if (!fields.length) return null;
 
-  if (!body.success) {
-    throw new Error(body.message);
-  }
+  panel.appendChild(el('label', { text: legend }));
+  const inputs = {};
 
-  // Packet::toArray() drops `data` entirely when it's empty (not even
-  // `{}` — the key itself is just absent), so body.data is `undefined`
-  // for a page built with no props() call at all. Default to {} so
-  // Object.keys(...) below never throws on that case.
-  return body.data || {};
+  fields.forEach(field => {
+    const wrap = el('div', { class: 'field' });
+    const labelRow = el('div', { class: 'field-label' });
+    labelRow.appendChild(el('span', { class: 'key', text: field.key }));
+    labelRow.appendChild(el('span', {
+      class: field.required ? 'field-required' : 'field-optional',
+      text: field.required ? '*' : '(optional)',
+    }));
+
+    const isJson = field.type === 'JSON';
+    let beautifyBtn = null;
+    if (isJson) {
+      beautifyBtn = el('button', { class: 'icon-btn', title: 'Beautify JSON', text: 'beautify' });
+      beautifyBtn.style.marginLeft = 'auto';
+      labelRow.appendChild(beautifyBtn);
+    }
+    const typeTag = el('span', { class: 'field-type', text: field.type });
+    if (isJson) typeTag.style.marginLeft = '6px';
+    labelRow.appendChild(typeTag);
+    wrap.appendChild(labelRow);
+
+    const input = isJson
+      ? el('textarea', { placeholder: field.required ? 'required' : 'optional' })
+      : el('input', { type: 'text', placeholder: field.required ? 'required' : 'optional' });
+    const cacheKey = namespace + ':' + field.key;
+    input.value = fieldCache[cacheKey] || '';
+    input.oninput = () => { fieldCache[cacheKey] = input.value; persist(); };
+    wrap.appendChild(input);
+    panel.appendChild(wrap);
+
+    if (beautifyBtn) {
+      beautifyBtn.onclick = () => {
+        try {
+          input.value = JSON.stringify(JSON.parse(input.value), null, 2);
+          fieldCache[cacheKey] = input.value;
+          persist();
+        } catch (e) { /* not valid JSON (yet) — leave it alone */ }
+      };
+    }
+
+    inputs[field.key] = { input, field };
+  });
+
+  return inputs;
 }
 
-// Header (title, then a Props JSON button — but only once we know
-// there's something in it), an optional description, then the body
-// section — the real page, in an iframe. Props are fetched right away
-// rather than lazily on a button click: there's no way to know whether
-// a page HAS any without actually invoking its action once, and the
-// iframe below is about to do exactly that anyway (it navigates to the
-// real route) — one more invocation, in parallel, to ask the same
-// action for its props isn't a new category of side effect, just a
-// second look at one already happening.
+// A field left blank is omitted (so the action's own InputBag default
+// applies) when optional, but still sent (even empty) when required —
+// same rule as Tester, so a required field left blank surfaces the
+// real "'x' is required." 400 instead of AppViewer silently guessing.
+function isBlankAndOptional(field, raw) {
+  return raw === '' && !field.required;
+}
+
+function coerceFieldValue(field, raw) {
+  if (field.type === 'JSON' || field.type === 'Array') {
+    try { return JSON.parse(raw); } catch (e) { return raw; }
+  }
+  return raw;
+}
+
+function buildFieldObject(inputs) {
+  const obj = {};
+  for (const key of Object.keys(inputs)) {
+    const { input, field } = inputs[key];
+    if (isBlankAndOptional(field, input.value)) continue;
+    obj[key] = coerceFieldValue(field, input.value);
+  }
+  return obj;
+}
+
+// Header (title, then a Request button — only for a route with
+// something to fill in), an optional description, a Request panel
+// (query/body fields + path params, same shape as Tester's own form),
+// then the body section — the real page, in an iframe. Nothing is
+// invoked automatically on load any more — a Page action might have
+// real side effects (a counter, a log line), so re-running it now
+// waits for you to actually click Invoke, the same as Tester's Send.
 function renderPanel(route) {
   const main = document.getElementById('main');
   main.innerHTML = '';
@@ -185,7 +293,6 @@ function renderPanel(route) {
     text: route.middleware.length ? 'Middleware: ' + route.middleware.join(', ') : 'No middleware',
   }));
 
-  // Collapsed by default — same pattern as Tester's Description toggle.
   if (route.comment) {
     const toggle = el('div', { class: 'comment-toggle collapsed' });
     toggle.appendChild(el('span', { class: 'chevron', text: '▾' }));
@@ -201,104 +308,196 @@ function renderPanel(route) {
     };
   }
 
-  // The body section — rendered below the header, per an iframe rather
-  // than injected HTML: a Page renders a full standalone document
-  // (doctype, head, scripts and all), which innerHTML simply can't host
-  // correctly. Starts pointed at the real, live route (src=) —
-  // same-origin, the exact real response a visitor would get; Render
-  // (added below, once props actually load) switches it to srcdoc= (a
-  // string this page handed it), Reset switches it back.
+  // The real page, live — built and attached FIRST, unconditionally,
+  // before any of the optional Request-panel machinery below runs. A
+  // mistake in that (still-evolving) code must never cost you the one
+  // thing that actually matters: seeing the page — see the try/catch
+  // around it below. No JS-triggered "inspector" button here — no
+  // browser exposes an API for a page to launch DevTools on anything,
+  // itself included; right-click -> Inspect on the iframe already works
+  // natively (same-origin), which is genuinely the whole capability.
   const frameWrap = el('div', { class: 'frame-wrap' });
   const iframe = el('iframe', { title: route.path });
   iframe.src = route.path;
   frameWrap.appendChild(iframe);
   main.appendChild(frameWrap);
 
-  const thisKey = routeKey(route);
+  try {
+    buildRequestPanel(route, main, panelHeader, frameWrap, iframe);
+  } catch (e) {
+    // The page above is already showing — this only means no Request
+    // panel/button for this route this time, not a blank screen.
+    console.error('AppViewer: failed to build the Request panel for ' + route.path, e);
+  }
+}
 
-  fetchLiveProps(route).then(props => {
-    // The user may have already clicked a different route by the time
-    // this resolves — main/panelHeader/frameWrap here still refer to
-    // THIS call's (now possibly detached) elements, so mutating them
-    // wouldn't corrupt whatever's on screen now, but there's still no
-    // reason to do any of this work for a panel nobody's looking at.
-    if (activeKey !== thisKey) return;
+// Everything about the optional "fill in a request, Invoke, see the
+// result instead of the live page" panel — split out of renderPanel()
+// so a bug in here can never take the live iframe down with it (see the
+// try/catch at its one call site).
+function buildRequestPanel(route, main, panelHeader, frameWrap, iframe) {
+  // Path params + query/body fields, exactly what Tester renders for
+  // the same route.fields metadata. `kind: 'add'` fields (InputBag's
+  // addX() — see its own docblock) are the controller's OWN data, not
+  // something a caller ever supplies, so they're never rendered as an
+  // input — just a plain read-only mention below the fillable fields
+  // (see addFields below). Always shown, even for a route with nothing
+  // detected at all — Load then just re-fetches the route with an empty
+  // request, and the Error panel (below) still lets you see exactly
+  // what came back.
+  const fields = route.fields || [];
+  const queryFields = fields.filter(f => f.source === 'query' && f.kind !== 'add');
+  const bodyFields = fields.filter(f => f.source === 'body' && f.kind !== 'add');
+  const addFields = fields.filter(f => f.kind === 'add');
+  const paramFieldsByKey = {};
+  fields.filter(f => f.source === 'params' && f.kind !== 'add').forEach(f => { paramFieldsByKey[f.key] = f; });
+  // Every real {name} placeholder in the URL, PLUS every detected
+  // params-source field even when it ISN'T one — a controller can call
+  // $request->params->getX('key') for a 'key' that has no matching
+  // {key} in its own route (always required, never satisfiable by a
+  // real visitor — see AboutController's own `role`); AppViewer still
+  // lets you fill it in and send it, since buildTargetRequest() on the
+  // server builds params straight from whatever this form submits, not
+  // from actually re-matching the URL.
+  const params = Array.from(new Set([...pathParams(route.path), ...Object.keys(paramFieldsByKey)]));
 
-    // No #[props()] call at all (or an explicitly empty one) — nothing
-    // to show or edit, so no button, no panel.
-    if (Object.keys(props).length === 0) return;
+  {
+    const requestBtn = el('button', { class: 'icon-btn', text: 'Request' });
+    panelHeader.appendChild(requestBtn);
 
-    const originalPropsText = JSON.stringify(props, null, 2);
+    const fieldCache = loadFieldCache(route);
+    const persistFields = () => saveFieldCache(route, fieldCache);
 
-    const propsBtn = el('button', { class: 'icon-btn', text: 'Props JSON' });
-    panelHeader.appendChild(propsBtn);
+    const requestPanel = el('div', { class: 'request-panel hidden' });
 
-    const propsPanel = el('div', { class: 'props-panel hidden' });
-    const propsTextarea = el('textarea', { class: 'props-editor', spellcheck: 'false' });
-    propsTextarea.value = originalPropsText;
-    const propsIcons = el('div', { class: 'props-icons' });
-    const renderBtn = el('button', { class: 'icon-btn', title: 'Re-render this page with the JSON above', text: 'Render' });
-    const resetBtn = el('button', { class: 'icon-btn', title: 'Restore the live props and switch the page below back to live', text: 'Reset' });
-    const propsStatus = el('span', { class: 'props-status' });
-    propsIcons.appendChild(renderBtn);
-    propsIcons.appendChild(resetBtn);
-    propsIcons.appendChild(propsStatus);
-    propsPanel.appendChild(propsTextarea);
-    propsPanel.appendChild(propsIcons);
-    main.insertBefore(propsPanel, frameWrap);
+    const paramInputs = {};
+    const paramRequired = {};
+    if (params.length) {
+      requestPanel.appendChild(el('label', { text: 'Path parameters' }));
+      const row = el('div', { class: 'row' });
+      params.forEach(p => {
+        const detected = paramFieldsByKey[p];
+        const required = detected ? detected.required : true;
+        paramRequired[p] = required;
 
-    propsBtn.onclick = () => {
-      propsPanel.classList.toggle('hidden');
-      propsBtn.classList.toggle('active');
+        const wrap = el('div', {});
+        const labelRow = el('div', { class: 'field-label' });
+        labelRow.appendChild(el('span', { class: 'key', text: p }));
+        labelRow.appendChild(el('span', {
+          class: required ? 'field-required' : 'field-optional',
+          text: required ? '*' : '(optional)',
+        }));
+        if (detected) labelRow.appendChild(el('span', { class: 'field-type', text: detected.type }));
+        wrap.appendChild(labelRow);
+
+        const input = el('input', { type: 'text', placeholder: p });
+        const cacheKey = 'path:' + p;
+        input.value = fieldCache[cacheKey] || '';
+        input.oninput = () => { fieldCache[cacheKey] = input.value; persistFields(); };
+        wrap.appendChild(input);
+
+        paramInputs[p] = input;
+        row.appendChild(wrap);
+      });
+      requestPanel.appendChild(row);
+    }
+
+    const queryInputs = renderFieldInputs(requestPanel, queryFields, 'Query parameters', fieldCache, 'query', persistFields);
+    const bodyInputs = renderFieldInputs(requestPanel, bodyFields, 'Body fields', fieldCache, 'body', persistFields);
+
+    // Plain mentions, not inputs — nothing here is something you fill
+    // in; it's what the controller itself adds (InputBag's addX())
+    // before the view ever reads it, e.g. `posts` from a PostService
+    // call. Just the variable name + type, so you know it exists.
+    if (addFields.length) {
+      requestPanel.appendChild(el('label', { text: 'Provided by the controller' }));
+      const mentions = el('div', { class: 'field' });
+      addFields.forEach((field, i) => {
+        if (i > 0) mentions.appendChild(document.createTextNode('  '));
+        const row = el('span', { class: 'field-label', style: 'display:inline-flex;' });
+        row.appendChild(el('span', { class: 'key', text: field.key }));
+        row.appendChild(el('span', { class: 'field-type', text: field.type }));
+        mentions.appendChild(row);
+      });
+      requestPanel.appendChild(mentions);
+    }
+
+    const actions = el('div', { class: 'request-actions' });
+    const status = el('span', { class: 'request-status' });
+    const resetBtn = el('button', { class: 'btn-outline', title: 'Switch the page below back to the live route', text: 'Reset' });
+    const loadBtn = el('button', { class: 'btn-elevated', title: 'Load this page with the request above', text: 'Load' });
+    // Status grows to fill the row (see .request-status's flex: 1),
+    // pushing both buttons to the end — Reset (outlined, secondary)
+    // then Load (elevated, the row's primary action) last.
+    actions.appendChild(status);
+    actions.appendChild(resetBtn);
+    actions.appendChild(loadBtn);
+    requestPanel.appendChild(actions);
+
+    main.insertBefore(requestPanel, frameWrap);
+
+    requestBtn.onclick = () => {
+      requestPanel.classList.toggle('hidden');
+      requestBtn.classList.toggle('active');
     };
 
-    renderBtn.onclick = async () => {
-      propsStatus.textContent = '';
-
-      let editedProps;
-      try {
-        editedProps = JSON.parse(propsTextarea.value);
-      } catch (e) {
-        propsStatus.textContent = 'Invalid JSON: ' + e.message;
+    loadBtn.onclick = async () => {
+      const missing = [];
+      params.forEach(p => { if (paramRequired[p] && !paramInputs[p].value.trim()) missing.push(p); });
+      if (queryInputs) {
+        Object.keys(queryInputs).forEach(key => {
+          const { input, field } = queryInputs[key];
+          if (field.required && !input.value.trim()) missing.push(key);
+        });
+      }
+      if (bodyInputs) {
+        Object.keys(bodyInputs).forEach(key => {
+          const { input, field } = bodyInputs[key];
+          if (field.required && !input.value.trim()) missing.push(key);
+        });
+      }
+      if (missing.length) {
+        status.textContent = 'Fill in required field' + (missing.length > 1 ? 's' : '') + ': ' + missing.join(', ');
         return;
       }
 
-      propsStatus.textContent = 'Rendering…';
+      const payload = {
+        query: queryInputs ? buildFieldObject(queryInputs) : {},
+        body: bodyInputs ? buildFieldObject(bodyInputs) : {},
+        params: Object.fromEntries(params.map(p => [p, paramInputs[p].value])),
+      };
+
+      const qs = 'controller=' + encodeURIComponent(route.controllerClass) + '&action=' + encodeURIComponent(route.action);
+
+      status.textContent = 'Loading…';
 
       try {
-        const url = '/app-viewer/render?controller=' + encodeURIComponent(route.controllerClass) + '&action=' + encodeURIComponent(route.action);
-        const res = await fetch(url, {
+        const renderRes = await fetch('/app-viewer/render?' + qs, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editedProps),
+          body: JSON.stringify(payload),
         });
 
-        if (!res.ok) {
-          const body = await res.json().catch(() => null);
-          propsStatus.textContent = 'Error: ' + (body ? body.message : res.status + ' ' + res.statusText);
+        if (!renderRes.ok) {
+          const errBody = await renderRes.json().catch(() => null);
+          status.textContent = 'Error: ' + (errBody ? errBody.message : renderRes.status + ' ' + renderRes.statusText);
           return;
         }
 
         iframe.removeAttribute('src');
-        iframe.srcdoc = await res.text();
-        propsStatus.textContent = 'Rendered with edited props (not live).';
+        iframe.srcdoc = await renderRes.text();
+        status.textContent = 'Loaded with the request above (not live).';
       } catch (e) {
-        propsStatus.textContent = 'Request failed: ' + e.message;
+        status.textContent = 'Request failed: ' + e.message;
       }
     };
 
     resetBtn.onclick = () => {
-      propsStatus.textContent = '';
+      status.textContent = '';
       iframe.removeAttribute('srcdoc');
       iframe.src = route.path;
-      propsTextarea.value = originalPropsText;
     };
-  }).catch(e => {
-    // A background fetch nobody explicitly asked for — if it fails,
-    // just skip the button rather than surfacing an error for
-    // something the user didn't click.
-    console.error('AppViewer: failed to fetch props for ' + route.path, e);
-  });
+  }
 }
 
 loadRoutes().catch(e => {

@@ -538,7 +538,10 @@ function renderForm(route) {
   // an endpoint that doesn't use InputBag still works exactly as before.
   // Query and body fields are rendered/cached by the exact same call —
   // only the `namespace` label ('query'/'body') and legend differ.
-  const fields = route.fields || [];
+  // `kind: 'add'` fields (InputBag's addX() — the controller's own data,
+  // never something a caller supplies) are excluded here the same way
+  // AppViewer excludes them from its own Request panel's inputs.
+  const fields = (route.fields || []).filter(f => f.kind !== 'add');
   const queryFields = fields.filter(f => f.source === 'query');
   const bodyFields = fields.filter(f => f.source === 'body');
   // Path params ({id}) whose controller actually validates them via
