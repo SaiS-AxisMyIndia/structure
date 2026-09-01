@@ -1,9 +1,9 @@
-# api-pro's MCP dev-tool server
+# gerogo's MCP dev-tool server
 
 An [MCP](https://modelcontextprotocol.io) server that exposes this
 project's own `apc` CLI (plus its compiled route table) as tools an MCP
 client — Claude Desktop, Claude Code, any other MCP-speaking assistant —
-can call while you're developing api-pro. It's a plain PHP script (no
+can call while you're developing gerogo. It's a plain PHP script (no
 Node, no extra dependency), talking JSON-RPC 2.0 over stdio — the same
 protocol every other MCP server uses, just hand-rolled here instead of
 pulling in an SDK.
@@ -19,7 +19,7 @@ and hands the result back to whatever MCP client asked.
 **Claude Code** — from this project's root:
 
 ```bash
-claude mcp add api-pro -- php mcp-server
+claude mcp add gerogo -- php mcp-server
 ```
 
 Or add it by hand to `.mcp.json` in the project root:
@@ -27,7 +27,7 @@ Or add it by hand to `.mcp.json` in the project root:
 ```json
 {
   "mcpServers": {
-    "api-pro": {
+    "gerogo": {
       "command": "php",
       "args": ["mcp-server"],
       "cwd": "/Users/axis/Projects/components_rn/ap"
@@ -43,7 +43,7 @@ Or add it by hand to `.mcp.json` in the project root:
 ```json
 {
   "mcpServers": {
-    "api-pro": {
+    "gerogo": {
       "command": "php",
       "args": ["/Users/axis/Projects/components_rn/ap/mcp-server"]
     }
@@ -103,9 +103,9 @@ absolute).
 
 ## Adding a new tool
 
-Add one entry to `ApiProTools::definitions()` (name, description, a
+Add one entry to `GerogoTools::definitions()` (name, description, a
 JSON Schema `inputSchema`) and one arm to the `match` in
-`ApiProTools::call()`. Return a plain string — `McpServer` wraps it in
+`GerogoTools::call()`. Return a plain string — `McpServer` wraps it in
 the `{content: [{type: "text", text: ...}]}` shape MCP expects, and
 setting `isError` from whether your method threw. Shell out to `apc`
 via `runApc()` if the capability already exists there; only reach for a

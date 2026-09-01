@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use ApiPro\Attributes\GetMapping;
-use ApiPro\Attributes\Middleware;
-use ApiPro\Attributes\PostMapping;
-use ApiPro\Attributes\RestController;
-use ApiPro\Request;
+use Gerogo\Attributes\GetMapping;
+use Gerogo\Attributes\Middleware;
+use Gerogo\Attributes\PostMapping;
+use Gerogo\Attributes\RestController;
+use Gerogo\Request;
 use Session\Session;
 use Session\SessionMiddleware;
 

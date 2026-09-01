@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Lib\Controllers;
 
-use ApiPro\Attributes\GetMapping;
-use ApiPro\Attributes\PageController;
-use ApiPro\Page;
-use ApiPro\Request;
+use Gerogo\Attributes\GetMapping;
+use Gerogo\Attributes\PageController;
+use Gerogo\Page;
+use Gerogo\Request;
 use App\Services\PostService;
 
 /**
@@ -30,7 +30,7 @@ class HomeController
     #[GetMapping]
     public function home(Request $request): Page
     {
-        $name = $request->body->getString('name');
+        $name = $request->body->getString('name', 'World');
         $request->body->addJson('posts', $this->postService->all());
 
         return new Page($request, 'HomePage');

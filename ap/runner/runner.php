@@ -11,7 +11,7 @@ declare(strict_types=1);
 $basePath = dirname(__DIR__);
 require_once "$basePath/vendor/autoload.php";
 
-use ApiPro\Runner;
+use Gerogo\Runner;
 
 Runner::boot($basePath);
 

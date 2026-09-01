@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Session;
 
-use ApiPro\Container;
-use ApiPro\Module;
-use ApiPro\Runner;
+use Gerogo\Container;
+use Gerogo\Module;
+use Gerogo\Runner;
 
 /**
  * Wires Session into the Kernel: builds a SessionConfig from

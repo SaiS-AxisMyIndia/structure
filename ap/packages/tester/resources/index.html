@@ -605,7 +605,7 @@ function renderForm(route) {
     bodyInputs = renderFieldInputs(panel, bodyFields, 'Body fields', fieldCache, 'body', persistFields);
     if (!bodyInputs && methodSupportsBody) {
       panel.appendChild(el('label', { text: 'Body (JSON)' }));
-      body = el('textarea', { placeholder: '{\n  "mail": "test@apipro.com",\n  "password": "secret"\n}' });
+      body = el('textarea', { placeholder: '{\n  "mail": "test@gerogo.com",\n  "password": "secret"\n}' });
       body.value = fieldCache['body:raw'] || '';
       body.oninput = () => { fieldCache['body:raw'] = body.value; persistFields(); };
       panel.appendChild(body);

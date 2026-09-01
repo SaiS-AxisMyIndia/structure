@@ -1,18 +1,18 @@
 {
-    "name": "paradigm/api-project",
-    "description": "PHP project bootstrapped on a Spring-Boot-style micro-framework — packages/api-pro is the web framework, packages/pro-sql is the MySQL layer, packages/session is the session/middleware layer, packages/tester is the API explorer, src/ is the application",
+    "name": "paradigm/gerogo-project",
+    "description": "PHP project bootstrapped on a Spring-Boot-style micro-framework — packages/gerogo is the web framework, packages/pro-sql is the MySQL layer, packages/session is the session/middleware layer, packages/tester is the API explorer, src/ is the application",
     "type": "project",
     "license": "proprietary",
     "require": {
         "php": ">=8.1",
-        "paradigm/api-pro": "*",
+        "paradigm/gerogo": "*",
         "paradigm/pro-sql": "*",
         "paradigm/session": "*",
         "paradigm/tester": "*",
         "paradigm/app-viewer": "*"
     },
     "repositories": [
-        { "type": "path", "url": "packages/api-pro" },
+        { "type": "path", "url": "packages/gerogo" },
         { "type": "path", "url": "packages/pro-sql" },
         { "type": "path", "url": "packages/session" },
         { "type": "path", "url": "packages/tester" },

@@ -2,14 +2,14 @@
   // Matches .env.dev's DB_* values exactly (root, no password, local
   // MySQL) — update these if your real .env diverges (different host,
   // a real password, etc.). Open the SQLTools sidebar icon, expand
-  // "api_pro (local)", and it connects.
+  // "gerogo (local)", and it connects.
   "sqltools.connections": [
     {
-      "name": "api_pro (local)",
+      "name": "gerogo (local)",
       "driver": "MySQL",
       "server": "127.0.0.1",
       "port": 3306,
-      "database": "api_pro",
+      "database": "gerogo",
       "username": "root",
       "password": ""
     }

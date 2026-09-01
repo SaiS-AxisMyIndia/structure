@@ -16,7 +16,7 @@ class PostService
 {
     /** @var array<int, array{id: int, text: string, createdAt: string}> */
     private array $posts = [
-        1 => ['id' => 1, 'text' => 'Welcome to api-pro.', 'createdAt' => '2026-01-01T00:00:00+00:00'],
+        1 => ['id' => 1, 'text' => 'Welcome to gerogo.', 'createdAt' => '2026-01-01T00:00:00+00:00'],
     ];
 
     private int $nextId = 2;

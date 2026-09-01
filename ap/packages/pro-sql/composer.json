@@ -1,16 +1,16 @@
 {
     "name": "paradigm/pro-sql",
-    "description": "ProSql: MySQL connection management + fluent query builder + base repository, for the api-project framework.",
+    "description": "ProSql: MySQL connection management + fluent query builder + base repository, for the gerogo-project framework.",
     "type": "library",
     "version": "1.0.0",
     "license": "proprietary",
     "require": {
         "php": ">=8.1",
         "ext-pdo": "*",
-        "paradigm/api-pro": "*"
+        "paradigm/gerogo": "*"
     },
     "repositories": [
-        { "type": "path", "url": "../api-pro" }
+        { "type": "path", "url": "../gerogo" }
     ],
     "autoload": {
         "psr-4": {

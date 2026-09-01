@@ -1,0 +1,15 @@
+{
+    "name": "paradigm/gerogo",
+    "description": "gerogo: Spring-Boot-style PHP micro-framework package — DI container, attribute-based routing, Kernel bootstrap.",
+    "type": "library",
+    "version": "1.0.0",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Gerogo\\": ""
+        }
+    }
+}

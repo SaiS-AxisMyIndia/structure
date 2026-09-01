@@ -1,16 +1,16 @@
 {
     "name": "paradigm/session",
-    "description": "Session: stateless, JWT-style session tokens (signed, optionally encrypted) + a SessionMiddleware, plugging into api-pro's middleware pipeline.",
+    "description": "Session: stateless, JWT-style session tokens (signed, optionally encrypted) + a SessionMiddleware, plugging into gerogo's middleware pipeline.",
     "type": "library",
     "version": "1.0.0",
     "license": "proprietary",
     "require": {
         "php": ">=8.1",
         "ext-openssl": "*",
-        "paradigm/api-pro": "*"
+        "paradigm/gerogo": "*"
     },
     "repositories": [
-        { "type": "path", "url": "../api-pro" }
+        { "type": "path", "url": "../gerogo" }
     ],
     "autoload": {
         "psr-4": {

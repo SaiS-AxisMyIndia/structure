@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace AppViewer;
 
-use ApiPro\Container;
-use ApiPro\Module;
-use ApiPro\Runner;
+use Gerogo\Container;
+use Gerogo\Module;
+use Gerogo\Runner;
 
 /**
  * Wires AppViewer into the Kernel: contributes AppViewerController — but

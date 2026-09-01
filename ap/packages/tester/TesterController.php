@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tester;
 
-use ApiPro\Attributes\GetMapping;
-use ApiPro\Attributes\RestController;
-use ApiPro\Page;
-use ApiPro\Request;
-use ApiPro\Response;
-use ApiPro\Runner;
+use Gerogo\Attributes\GetMapping;
+use Gerogo\Attributes\RestController;
+use Gerogo\Page;
+use Gerogo\Request;
+use Gerogo\Response;
+use Gerogo\Runner;
 
 /**
  * Serves the tester UI itself (a static page) plus the one JSON endpoint

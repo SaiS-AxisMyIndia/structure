@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace ProSql;
 
-use ApiPro\Container;
-use ApiPro\Module;
-use ApiPro\Runner;
+use Gerogo\Container;
+use Gerogo\Module;
+use Gerogo\Runner;
 use ProSql\Schema\SchemaBuilder;
 
 /**
@@ -35,11 +35,11 @@ class ProSqlModule extends Module
      * `apc build`'s entity-table sync — see SchemaBuilder's own docblock
      * for exactly what each TABLE_WRITE mode is/isn't allowed to do.
      * This is the ONLY place pro-sql's Connection/Schema classes get
-     * reached from a build run — api-pro's BuildCommand just calls
+     * reached from a build run — gerogo's BuildCommand just calls
      * Module::build() generically on every module (this override is
      * what actually does something with that call) and never
      * references anything in this package directly, keeping the
-     * existing dependency direction (pro-sql depends on api-pro, never
+     * existing dependency direction (pro-sql depends on gerogo, never
      * the reverse) intact.
      *
      * A no-op — returns null, prints nothing — when runner/entities.php
@@ -112,7 +112,7 @@ class ProSqlModule extends Module
             return [
                 'host' => $_ENV['DB_HOST'] ?? '127.0.0.1',
                 'port' => $_ENV['DB_PORT'] ?? 3306,
-                'database' => $_ENV['DB_DATABASE'] ?? 'api_pro',
+                'database' => $_ENV['DB_DATABASE'] ?? 'gerogo',
                 'username' => $_ENV['DB_USERNAME'] ?? 'root',
                 'password' => $_ENV['DB_PASSWORD'] ?? '',
                 'charset' => $_ENV['DB_CHARSET'] ?? 'utf8mb4',

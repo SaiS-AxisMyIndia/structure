@@ -12,7 +12,7 @@ use Throwable;
  * MigrationWriter together into what `apc build` actually runs (via
  * ProSqlModule::build() — see its docblock for why this package's own
  * Connection/Schema classes are only ever reached through that hook,
- * never referenced directly from api-pro's BuildCommand).
+ * never referenced directly from gerogo's BuildCommand).
  *
  * What each TABLE_WRITE mode is allowed to touch:
  *

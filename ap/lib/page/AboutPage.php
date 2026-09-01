@@ -1,10 +1,10 @@
 <?php
 
-use ApiPro\Page;
-use ApiPro\Runner;
+use Gerogo\Page;
+use Gerogo\Runner;
 
 /**
- * A simple "what this project is" page — describes api-pro itself
+ * A simple "what this project is" page — describes gerogo itself
  * honestly (a demo/learning framework, not a real product with a real
  * team behind it), matching the tone already established in
  * README.md/HomePage.php rather than inventing marketing claims this
@@ -18,11 +18,11 @@ $version = Runner::get('version');
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>About — api-pro</title>
+<title>About — gerogo</title>
 <style>
   :root {
     --bg: #0f1720; --panel: #182430; --panel-2: #1e2c3a; --border: #2b3a4a;
-    --text: #e6edf3; --muted: #8b9bab; --accent: #4da3ff; --accent-2: #7c5cff;
+    --text: #e6edf3; --muted: #8b9bab; --accent: #74e18b; --accent-2: #2f9e5b;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
@@ -56,7 +56,7 @@ $version = Runner::get('version');
 <body>
 
 <header class="site-header">
-  <div class="brand"><span class="dot">●</span> api-pro <span class="version">v<?= Page::html($version) ?></span></div>
+  <div class="brand"><span class="dot">●</span> gerogo <span class="version">v<?= Page::html($version) ?></span></div>
   <nav class="site-nav">
     <a href="/ap/v1/site">Home</a>
     <a href="/ap/v1/site/docs">Docs</a>
@@ -72,7 +72,7 @@ $version = Runner::get('version');
   <div class="eyebrow">About</div>
   <h1>What this is</h1>
 
-  <p><strong>api-pro</strong> is a small PHP micro-framework built around the same ideas Spring Boot gives you: attribute-based routing instead of a separate routes file, constructor injection instead of manual instantiation, and one uniform response envelope (<code>Packet</code>) instead of ad-hoc array shapes.</p>
+  <p><strong>gerogo</strong> is a small PHP micro-framework built around the same ideas Spring Boot gives you: attribute-based routing instead of a separate routes file, constructor injection instead of manual instantiation, and one uniform response envelope (<code>Packet</code>) instead of ad-hoc array shapes.</p>
 
   <p>This site — the homepage, these docs, the Tester at <a href="/tester">/tester</a>, and the AppViewer at <a href="/app-viewer">/app-viewer</a> — is the framework's own showcase, running on itself. Every feature described in the docs is real, working code in this same codebase, not a mockup.</p>
 
@@ -86,7 +86,7 @@ $version = Runner::get('version');
 </main>
 
 <footer class="site-footer">
-  <span>api-pro v<?= Page::html($version) ?> — built with itself.</span>
+  <span>gerogo v<?= Page::html($version) ?> — built with itself.</span>
   <span><a href="/ap/v1/site/docs">Docs</a> · <a href="/tester">Tester</a></span>
 </footer>
 

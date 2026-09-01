@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/ApiProTools.php';
+require_once __DIR__ . '/GerogoTools.php';
 
 /**
  * The JSON-RPC 2.0 / stdio transport half of this MCP server — read one
@@ -10,17 +10,17 @@ require_once __DIR__ . '/ApiProTools.php';
  * per the MCP stdio transport spec: messages are newline-delimited and
  * must never contain an embedded newline themselves), dispatch it, and
  * write exactly one line back to STDOUT per request — never for a
- * notification (no "id" at all), which gets no response. ApiProTools is
+ * notification (no "id" at all), which gets no response. GerogoTools is
  * where every actual tool lives; this class only knows the protocol,
  * not what any tool does.
  */
 final class McpServer
 {
-    private ApiProTools $tools;
+    private GerogoTools $tools;
 
     public function __construct(string $basePath)
     {
-        $this->tools = new ApiProTools($basePath);
+        $this->tools = new GerogoTools($basePath);
 
         // Nothing on STDOUT but protocol messages, ever — a stray PHP
         // warning printed there would look like a malformed JSON-RPC
@@ -95,7 +95,7 @@ final class McpServer
             // to actually negotiate beyond "yes, that works".
             'protocolVersion' => $params['protocolVersion'] ?? '2024-11-05',
             'capabilities' => ['tools' => new \stdClass()],
-            'serverInfo' => ['name' => 'api-pro-dev', 'version' => '1.0.0'],
+            'serverInfo' => ['name' => 'gerogo-dev', 'version' => '1.0.0'],
         ];
     }
 

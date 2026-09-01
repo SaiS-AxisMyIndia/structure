@@ -6,10 +6,10 @@
     "license": "proprietary",
     "require": {
         "php": ">=8.1",
-        "paradigm/api-pro": "*"
+        "paradigm/gerogo": "*"
     },
     "repositories": [
-        { "type": "path", "url": "../api-pro" }
+        { "type": "path", "url": "../gerogo" }
     ],
     "autoload": {
         "psr-4": {

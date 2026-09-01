@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Lib\Controllers;
 
-use ApiPro\Attributes\GetMapping;
-use ApiPro\Attributes\PageController;
-use ApiPro\Page;
-use ApiPro\Request;
+use Gerogo\Attributes\GetMapping;
+use Gerogo\Attributes\PageController;
+use Gerogo\Page;
+use Gerogo\Request;
 
 /**
  * The releases/changelog page — one of five single-action classes

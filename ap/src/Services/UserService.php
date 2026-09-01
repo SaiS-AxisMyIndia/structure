@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use ApiPro\Attributes\Service;
+use Gerogo\Attributes\Service;
 use App\Repo\UserRepo;
 
 #[Service]

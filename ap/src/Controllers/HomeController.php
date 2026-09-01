@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use ApiPro\Attributes\PostMapping;
-use ApiPro\Attributes\RestController;
-use ApiPro\Packet;
-use ApiPro\PacketSuccess;
-use ApiPro\Request;
+use Gerogo\Attributes\PostMapping;
+use Gerogo\Attributes\RestController;
+use Gerogo\Packet;
+use Gerogo\PacketSuccess;
+use Gerogo\Request;
 use App\Services\PostService;
 
 /**
@@ -20,7 +20,7 @@ use App\Services\PostService;
  * not page-shaped, which is exactly why it stayed behind rather than
  * moving along with them.
  */
-#[RestController(prefix: '/api-pro')]
+#[RestController(prefix: '/gerogo')]
 class HomeController
 {
     public function __construct(private readonly PostService $postService)

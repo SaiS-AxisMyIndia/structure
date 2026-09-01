@@ -4,7 +4,7 @@ declare(strict_types=1);
 use App\Application;
 
 return [
-    'name' => 'api-pro',
+    'name' => 'gerogo',
     'version' => $_ENV['VERSION'] ?? '1.0.0',
     'env' => $_ENV['APP_ENV'] ?? 'local',
     'base_path' => __DIR__,

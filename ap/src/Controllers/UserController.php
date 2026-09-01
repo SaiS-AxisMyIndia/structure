@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Repo\UserRepo;
-use ApiPro\Attributes\DeleteMapping;
-use ApiPro\Attributes\GetMapping;
-use ApiPro\Attributes\Middleware;
-use ApiPro\Attributes\PostMapping;
-use ApiPro\Attributes\PutMapping;
-use ApiPro\Attributes\RestController;
-use ApiPro\Packet;
-use ApiPro\PacketFailed;
-use ApiPro\PacketSuccess;
-use ApiPro\Request;
+use Gerogo\Attributes\DeleteMapping;
+use Gerogo\Attributes\GetMapping;
+use Gerogo\Attributes\Middleware;
+use Gerogo\Attributes\PostMapping;
+use Gerogo\Attributes\PutMapping;
+use Gerogo\Attributes\RestController;
+use Gerogo\Packet;
+use Gerogo\PacketFailed;
+use Gerogo\PacketSuccess;
+use Gerogo\Request;
 use Session\SessionMiddleware;
 use Tester\Tester;
 

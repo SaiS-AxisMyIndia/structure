@@ -86,6 +86,7 @@
 
 <script>
 const FIELDS_KEY_PREFIX = 'apc_appviewer_fields:'; // + routeKey(route) per page
+const LAST_ROUTE_KEY = 'apc_appviewer_last_route'; // routeKey() of the page last selected, restored on next load
 let routes = [];
 let activeKey = null;
 const collapsedGroups = new Set();
@@ -146,7 +147,22 @@ async function loadRoutes() {
   // Every group starts collapsed on first load, same as Tester.
   groupByController(routes).forEach(([controller]) => collapsedGroups.add(controller));
 
+  // Reopen whatever page was selected last time, its group expanded and
+  // its Request panel already showing the field values cached for it
+  // (loadFieldCache/renderFieldInputs above) — so coming back to
+  // AppViewer picks up right where you left off instead of the blank
+  // "Pick a page on the left" state. Still nothing invoked automatically
+  // (see renderPanel's own comment): the live iframe below is the same
+  // plain GET a manual click would do, never the Request panel's Load.
+  const lastKey = localStorage.getItem(LAST_ROUTE_KEY);
+  const lastRoute = lastKey ? routes.find(r => routeKey(r) === lastKey) : null;
+
+  if (lastRoute) {
+    activeKey = lastKey;
+    collapsedGroups.delete(lastRoute.controller || '(unknown)');
+  }
   renderList();
+  if (lastRoute) renderPanel(lastRoute);
 }
 
 function renderList() {
@@ -180,7 +196,7 @@ function renderList() {
       row.appendChild(el('span', { class: 'method method-' + route.method, text: route.method }));
       row.appendChild(el('span', { class: 'path', text: route.path }));
       if (route.middleware.length) row.appendChild(el('span', { class: 'badge', text: route.middleware.length + ' mw' }));
-      row.onclick = () => { activeKey = key; renderList(); renderPanel(route); };
+      row.onclick = () => { activeKey = key; localStorage.setItem(LAST_ROUTE_KEY, key); renderList(); renderPanel(route); };
       routesEl.appendChild(row);
     });
     group.appendChild(routesEl);
@@ -276,10 +292,14 @@ function buildFieldObject(inputs) {
 // Header (title, then a Request button — only for a route with
 // something to fill in), an optional description, a Request panel
 // (query/body fields + path params, same shape as Tester's own form),
-// then the body section — the real page, in an iframe. Nothing is
-// invoked automatically on load any more — a Page action might have
-// real side effects (a counter, a log line), so re-running it now
-// waits for you to actually click Invoke, the same as Tester's Send.
+// then the body section — the real page, in an iframe. A route with
+// no persisted field values gets no auto-invoke — a Page action might
+// have real side effects (a counter, a log line), so with nothing
+// cached to send this waits for you to click Load yourself, same as
+// Tester's Send. Once you've filled in a route's fields at least once,
+// though, opening it again (a click, or the last-selected page on this
+// file's own next load) replays that same cached request right away —
+// see buildRequestPanel's hasCachedData below.
 function renderPanel(route) {
   const main = document.getElementById('main');
   main.innerHTML = '';
@@ -362,11 +382,19 @@ function buildRequestPanel(route, main, panelHeader, frameWrap, iframe) {
   const params = Array.from(new Set([...pathParams(route.path), ...Object.keys(paramFieldsByKey)]));
 
   {
-    const requestBtn = el('button', { class: 'icon-btn', text: 'Request' });
-    panelHeader.appendChild(requestBtn);
-
     const fieldCache = loadFieldCache(route);
     const persistFields = () => saveFieldCache(route, fieldCache);
+    // A route you've filled in before (path params, query, or body —
+    // whatever's in fieldCache) loads straight into that filled-in
+    // request instead of the blank/likely-400 live route — see doLoad()
+    // below, called once automatically when this is true. The panel
+    // itself still starts closed either way (below) — this only decides
+    // whether the iframe gets that auto-replay, not whether the fields
+    // are shown; Request still opens it explicitly.
+    const hasCachedData = Object.keys(fieldCache).length > 0;
+
+    const requestBtn = el('button', { class: 'icon-btn', text: 'Request' });
+    panelHeader.appendChild(requestBtn);
 
     const requestPanel = el('div', { class: 'request-panel hidden' });
 
@@ -425,23 +453,38 @@ function buildRequestPanel(route, main, panelHeader, frameWrap, iframe) {
     const actions = el('div', { class: 'request-actions' });
     const status = el('span', { class: 'request-status' });
     const resetBtn = el('button', { class: 'btn-outline', title: 'Switch the page below back to the live route', text: 'Reset' });
+    const liveBtn = el('button', { class: 'btn-outline', title: 'Open this page with the request above in a new tab', text: 'Live ↗' });
     const loadBtn = el('button', { class: 'btn-elevated', title: 'Load this page with the request above', text: 'Load' });
+    const loadCloseBtn = el('button', { class: 'btn-elevated', title: 'Load this page with the request above, then close this panel', text: 'Load & Close' });
     // Status grows to fill the row (see .request-status's flex: 1),
-    // pushing both buttons to the end — Reset (outlined, secondary)
-    // then Load (elevated, the row's primary action) last.
+    // pushing the buttons to the end — Reset and Live (outlined,
+    // secondary — neither touches the panel below), then Load and
+    // Load & Close (both elevated, the row's primary actions).
     actions.appendChild(status);
     actions.appendChild(resetBtn);
+    actions.appendChild(liveBtn);
     actions.appendChild(loadBtn);
+    actions.appendChild(loadCloseBtn);
     requestPanel.appendChild(actions);
 
     main.insertBefore(requestPanel, frameWrap);
+
+    function closeRequestPanel() {
+      requestPanel.classList.add('hidden');
+      requestBtn.classList.remove('active');
+    }
 
     requestBtn.onclick = () => {
       requestPanel.classList.toggle('hidden');
       requestBtn.classList.toggle('active');
     };
 
-    loadBtn.onclick = async () => {
+    // The one fetch every action below shares — validates required
+    // fields, POSTs the panel's current query/body/params to
+    // /app-viewer/render (see AppViewerController::render()), and hands
+    // back the rendered HTML, or null (with `status` already set to say
+    // why) on a missing field, a non-2xx response, or a network error.
+    async function fetchRenderedHtml() {
       const missing = [];
       params.forEach(p => { if (paramRequired[p] && !paramInputs[p].value.trim()) missing.push(p); });
       if (queryInputs) {
@@ -458,7 +501,7 @@ function buildRequestPanel(route, main, panelHeader, frameWrap, iframe) {
       }
       if (missing.length) {
         status.textContent = 'Fill in required field' + (missing.length > 1 ? 's' : '') + ': ' + missing.join(', ');
-        return;
+        return null;
       }
 
       const payload = {
@@ -481,16 +524,59 @@ function buildRequestPanel(route, main, panelHeader, frameWrap, iframe) {
         if (!renderRes.ok) {
           const errBody = await renderRes.json().catch(() => null);
           status.textContent = 'Error: ' + (errBody ? errBody.message : renderRes.status + ' ' + renderRes.statusText);
-          return;
+          return null;
         }
 
-        iframe.removeAttribute('src');
-        iframe.srcdoc = await renderRes.text();
-        status.textContent = 'Loaded with the request above (not live).';
+        return await renderRes.text();
       } catch (e) {
         status.textContent = 'Request failed: ' + e.message;
+        return null;
       }
+    }
+
+    // Named (not just loadBtn.onclick) so hasCachedData below, and
+    // loadCloseBtn, can also call this directly rather than only ever
+    // firing from Load's own click. Returns whether it actually loaded
+    // (false on a missing required field or a failed/errored request) —
+    // loadCloseBtn only closes the panel on true, so a validation or
+    // error message never gets closed out from under you unread.
+    async function doLoad() {
+      const html = await fetchRenderedHtml();
+      if (html === null) return false;
+
+      iframe.removeAttribute('src');
+      iframe.srcdoc = html;
+      status.textContent = 'Loaded with the request above (not live).';
+      return true;
+    }
+
+    loadBtn.onclick = doLoad;
+    loadCloseBtn.onclick = async () => {
+      if (await doLoad()) closeRequestPanel();
     };
+
+    // Live ↗ — the browser can't navigate straight to route.path with
+    // this data (a real GET/POST from the address bar carries no JSON
+    // body, and a body-sourced field like HomeController's `name` is
+    // never read from the query string — see pathParams()'s own
+    // comment above), so this renders through the exact same
+    // /app-viewer/render POST as Load, then hands the resulting HTML to
+    // a real new tab via a blob: URL — an actual separate
+    // page/tab, not another iframe, with the request above baked in.
+    liveBtn.onclick = async () => {
+      const html = await fetchRenderedHtml();
+      if (html === null) return;
+
+      const blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      window.open(blobUrl, '_blank');
+      status.textContent = 'Opened in a new tab with the request above (not live).';
+    };
+
+    // The one case this replays a request automatically: fields already
+    // filled in from a previous visit (hasCachedData above) — never a
+    // route opened for the first time with nothing cached, since that
+    // would mean guessing at side effects nobody asked for.
+    if (hasCachedData) doLoad();
 
     resetBtn.onclick = () => {
       status.textContent = '';

@@ -1,11 +1,11 @@
 <?php
 
-use ApiPro\Page;
-use ApiPro\Request;
-use ApiPro\Runner;
+use Gerogo\Page;
+use Gerogo\Request;
+use Gerogo\Runner;
 
 /**
- * api-pro's showcase homepage — a real website (nav, hero, feature grid,
+ * gerogo's showcase homepage — a real website (nav, hero, feature grid,
  * quick start, footer), not a bare demo page. $request arrives via
  * `new Page($request, 'HomePage')` in Lib\Controllers\HomeController::home()
  * — $posts was added onto it there (`$request->body->addJson('posts', ...)`,
@@ -13,7 +13,7 @@ use ApiPro\Runner;
  * PostService, not the real request, and this file reads it back the
  * exact same way it would any other body field. The "Live demo" section
  * at the bottom is the one part that's actually interactive: its JS
- * posts to the real POST /ap/v1/api-pro/posts endpoint
+ * posts to the real POST /ap/v1/gerogo/posts endpoint
  * (App\Controllers\HomeController — a different class, same short name,
  * see its own docblock) and appends whatever comes back — proof this is
  * a working framework, not a mockup.
@@ -28,11 +28,11 @@ $version = Runner::get('version');
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>api-pro — a Spring-Boot-style framework for PHP</title>
+<title>gerogo — a Spring-Boot-style framework for PHP</title>
 <style>
   :root {
     --bg: #0f1720; --panel: #182430; --panel-2: #1e2c3a; --border: #2b3a4a;
-    --text: #e6edf3; --muted: #8b9bab; --accent: #4da3ff; --accent-2: #7c5cff;
+    --text: #e6edf3; --muted: #8b9bab; --accent: #74e18b; --accent-2: #2f9e5b;
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -112,7 +112,7 @@ $version = Runner::get('version');
 <body>
 
 <header class="site-header">
-  <div class="brand"><span class="dot">●</span> api-pro <span class="version">v<?= Page::html($version) ?></span></div>
+  <div class="brand"><span class="dot">●</span> gerogo <span class="version">v<?= Page::html($version) ?></span></div>
   <nav class="site-nav">
     <a href="/ap/v1/site" class="current">Home</a>
     <a href="/ap/v1/site/docs">Docs</a>
@@ -194,9 +194,9 @@ $version = Runner::get('version');
 
   <section id="demo">
     <h2>See it running</h2>
-    <p class="section-sub">Not a screenshot — this posts to the real <code>POST /ap/v1/api-pro/posts</code> endpoint below and renders whatever it sends back.</p>
+    <p class="section-sub">Not a screenshot — this posts to the real <code>POST /ap/v1/gerogo/posts</code> endpoint below and renders whatever it sends back.</p>
     <div class="demo-panel">
-      <span class="demo-tag">ApiPro\Page::view('HomePage') + Packet</span>
+      <span class="demo-tag">Gerogo\Page::view('HomePage') + Packet</span>
       <form id="post-form">
         <input type="text" id="post-text" placeholder="Write something…" required>
         <button type="submit">Post</button>
@@ -215,7 +215,7 @@ $version = Runner::get('version');
 </main>
 
 <footer class="site-footer">
-  <span>api-pro v<?= Page::html($version) ?> — built with itself.</span>
+  <span>gerogo v<?= Page::html($version) ?> — built with itself.</span>
   <span><a href="/ap/v1/site/docs">Docs</a> · <a href="/ap/v1/site/releases">Releases</a> · <a href="/ap/v1/site/about">About</a> · <a href="/ap/v1/site/contact">Contact</a> · <a href="/tester">Tester</a></span>
 </footer>
 
@@ -232,7 +232,7 @@ $version = Runner::get('version');
     if (!text) return;
 
     try {
-      const res = await fetch('/ap/v1/api-pro/posts', {
+      const res = await fetch('/ap/v1/gerogo/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),

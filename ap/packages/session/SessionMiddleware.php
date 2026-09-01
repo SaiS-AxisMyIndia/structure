@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Session;
 
-use ApiPro\MiddlewareInterface;
-use ApiPro\Packet;
-use ApiPro\PacketFailed;
-use ApiPro\Request;
+use Gerogo\MiddlewareInterface;
+use Gerogo\Packet;
+use Gerogo\PacketFailed;
+use Gerogo\Request;
 use LogicException;
 
 /**

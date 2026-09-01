@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Session;
 
-use ApiPro\Packet;
-use ApiPro\PacketFailed;
+use Gerogo\Packet;
+use Gerogo\PacketFailed;
 
 /**
  * A stateless, JWT-style session — not native $_SESSION. One Session

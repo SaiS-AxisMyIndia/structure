@@ -3,7 +3,7 @@
 
 declare(strict_types=1);
 
-// apc — this project's CLI (api-pro console), the same idea as Laravel's
+// apc — this project's CLI (gerogo console), the same idea as Laravel's
 // `artisan` or Spring Boot's actuator/admin tooling: operational commands
 // that sit next to the app, not behind an HTTP route.
 //
@@ -14,7 +14,7 @@ declare(strict_types=1);
 //   php apc build -c | --clean            delete the whole runner/ folder first, then build as above
 //   php apc clean                         delete the whole runner/ folder (and route cache) — no rebuild
 //   php apc ... -f, --flavour <name>      which .env.<name> to boot from — local, production, staging, or any other name a real APP_ENV happens to carry (else that env var, else 'local')
-//   php apc install [version]             no module (or `api-pro`): validate every module's resolved version
+//   php apc install [version]             no module (or `gerogo`): validate every module's resolved version
 //   php apc install <name> [version]      any other module: show/validate its own resolved info
 //
 // Runs the exact same Runner::boot() as an HTTP request would (module
@@ -25,8 +25,8 @@ $basePath = __DIR__;
 
 require_once "$basePath/vendor/autoload.php";
 
-use ApiPro\Cli\Application;
-use ApiPro\Runner;
+use Gerogo\Cli\Application;
+use Gerogo\Runner;
 
 // -f/--flavour <name> (or --flavour=<name>) is this app's one and only
 // environment selector — "flavour" and "env" mean the same thing here

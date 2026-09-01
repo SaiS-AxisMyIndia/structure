@@ -1,7 +1,7 @@
 <?php
 
-use ApiPro\Page;
-use ApiPro\Runner;
+use Gerogo\Page;
+use Gerogo\Runner;
 
 /**
  * A simple contact page. There's no real organization behind this demo
@@ -18,11 +18,11 @@ $version = Runner::get('version');
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Contact — api-pro</title>
+<title>Contact — gerogo</title>
 <style>
   :root {
     --bg: #0f1720; --panel: #182430; --panel-2: #1e2c3a; --border: #2b3a4a;
-    --text: #e6edf3; --muted: #8b9bab; --accent: #4da3ff; --accent-2: #7c5cff;
+    --text: #e6edf3; --muted: #8b9bab; --accent: #74e18b; --accent-2: #2f9e5b;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
@@ -61,7 +61,7 @@ $version = Runner::get('version');
 <body>
 
 <header class="site-header">
-  <div class="brand"><span class="dot">●</span> api-pro <span class="version">v<?= Page::html($version) ?></span></div>
+  <div class="brand"><span class="dot">●</span> gerogo <span class="version">v<?= Page::html($version) ?></span></div>
   <nav class="site-nav">
     <a href="/ap/v1/site">Home</a>
     <a href="/ap/v1/site/docs">Docs</a>
@@ -93,7 +93,7 @@ $version = Runner::get('version');
 </main>
 
 <footer class="site-footer">
-  <span>api-pro v<?= Page::html($version) ?> — built with itself.</span>
+  <span>gerogo v<?= Page::html($version) ?> — built with itself.</span>
   <span><a href="/ap/v1/site/docs">Docs</a> · <a href="/tester">Tester</a></span>
 </footer>
 

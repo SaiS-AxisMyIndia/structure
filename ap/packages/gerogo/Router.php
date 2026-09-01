@@ -1,0 +1,145 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Gerogo;
+
+/**
+ * Matches an incoming request against a precompiled route table and
+ * dispatches it through the route's middleware chain to the matching
+ * controller method — the piece that plays the role of Spring MVC's
+ * DispatcherServlet plus its interceptor chain.
+ *
+ * Router itself does no Reflection and knows nothing about attributes —
+ * that work happens once, in RouteCompiler, normally driven by
+ * Runner::routes() (which can cache the result to a file). Router just
+ * takes the compiled table and calls the matching method directly.
+ */
+class Router
+{
+    /**
+     * @var array<string, list<array{
+     *     regex: string,
+     *     controller: class-string,
+     *     action: string,
+     *     path: string,
+     *     isPage: bool,
+     *     middleware: list<array{class: class-string, overrides: array<string, mixed>}>,
+     * }>>
+     */
+    private array $routes = [];
+
+    /**
+     * @param list<array{method: string, regex: string, controller: class-string, action: string, path: string, middleware: array}> $compiledRoutes
+     */
+    public function __construct(private readonly Container $container, array $compiledRoutes = [])
+    {
+        $this->addRoutes($compiledRoutes);
+    }
+
+    /**
+     * Merges an already-compiled route table (from RouteCompiler::compile(),
+     * or Runner's cache file) into what this Router already knows —
+     * grouped by HTTP method for fast lookup at dispatch time.
+     *
+     * @param list<array{method: string, regex: string, controller: class-string, action: string, path: string, middleware: array}> $compiledRoutes
+     */
+    public function addRoutes(array $compiledRoutes): void
+    {
+        foreach ($compiledRoutes as $route) {
+            $this->routes[$route['method']][] = $route;
+        }
+    }
+
+    /** Convenience for a single controller with no precompiled table to hand in — compiles it on the spot. */
+    public function registerController(string $controllerClass, string $modulePrefix = ''): void
+    {
+        $this->addRoutes(RouteCompiler::compile($controllerClass, $modulePrefix));
+    }
+
+    public function dispatch(Request $request): mixed
+    {
+        foreach ($this->routes[$request->method] ?? [] as $route) {
+            if (preg_match($route['regex'], $request->path, $matches) === 1) {
+                // $request->path is the raw, still percent-encoded URL path
+                // (parse_url() doesn't decode it — unlike $_GET, which PHP
+                // already decodes for us). A path param value containing a
+                // reserved character (a literal "/", a space, unicode...)
+                // only survives as ONE opaque segment — matching the
+                // route's [^/]* placeholder at all — because Tester (or
+                // any client) percent-encodes it first. rawurldecode()
+                // here is what hands the *original* value back to
+                // InputBag/the controller instead of the encoded one.
+                $request->params = new InputBag(array_map(
+                    rawurldecode(...),
+                    array_filter(
+                        $matches,
+                        static fn (int|string $key): bool => is_string($key),
+                        ARRAY_FILTER_USE_KEY,
+                    ),
+                ));
+
+                // Set the moment a route matches, same as $params above —
+                // Kernel::handle() reads this if the action (or a
+                // middleware, or InputBag validation inside it) throws,
+                // to render a styled HTML error page instead of JSON for
+                // a #[PageController] route. See Request::$isPage.
+                $request->isPage = $route['isPage'];
+
+                $action = fn (Request $request): mixed => $this->container
+                    ->make($route['controller'])
+                    ->{$route['action']}($request);
+
+                return $this->runPipeline($route['middleware'], $request, $action);
+            }
+        }
+
+        // No route matched at all — `$request->isPage` is still its
+        // default `false` here (never a real route's own answer; the
+        // loop above never reached one), so it's the wrong signal for
+        // "should this 404 render as HTML". The best one left is what
+        // the client's own Accept header actually asked for: a real
+        // browser's own top-level navigation (typing the URL, clicking
+        // a link) always sends `text/html` first, so a mistyped/removed
+        // page's own 404 still renders as a page, not raw JSON dropped
+        // in the middle of a browser tab. An XHR/fetch/curl call
+        // doesn't send that unless it explicitly wants HTML too, so a
+        // genuine API 404 is unaffected. See Request::wantsHtml().
+        $request->isPage = $request->wantsHtml();
+
+        // The unmatched path used to ride along as $data ({"path": "..."})
+        // — PacketFailed no longer carries data at all (that's exclusively
+        // PacketSuccess's field, see Packet's docblock), so it's folded
+        // into the message text instead.
+        throw new PacketFailed("Not Found: {$request->path}", 0, 404);
+    }
+
+    /**
+     * Wraps $destination (the controller action) in each middleware, outermost
+     * first, so calling the resulting closure runs: mw[0] -> mw[1] -> ... ->
+     * destination -> back out through every middleware in reverse. Each
+     * middleware decides whether/when to call $next — the same onion model
+     * as Spring's interceptor chain or a PSR-15 pipeline.
+     *
+     * @param list<array{class: class-string, overrides: array<string, mixed>}> $middlewareEntries
+     */
+    private function runPipeline(array $middlewareEntries, Request $request, callable $destination): mixed
+    {
+        $pipeline = array_reduce(
+            array_reverse($middlewareEntries),
+            fn (callable $next, array $entry): callable => function (Request $request) use ($entry, $next): mixed {
+                // overrides were already lifted out of any attribute-built
+                // instance at compile time (RouteCompiler) — no reflection
+                // happens here, just build-with-overrides or build-plain.
+                $middleware = $entry['overrides'] === []
+                    ? $this->container->make($entry['class'])
+                    : $this->container->makeWith($entry['class'], $entry['overrides']);
+
+                return $middleware->handle($request, $next);
+            },
+            $destination,
+        );
+
+        return $pipeline($request);
+    }
+}

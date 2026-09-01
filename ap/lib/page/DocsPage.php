@@ -1,10 +1,10 @@
 <?php
 
-use ApiPro\Page;
-use ApiPro\Runner;
+use Gerogo\Page;
+use Gerogo\Runner;
 
 /**
- * api-pro's documentation — a real docs site (sticky sidebar nav +
+ * gerogo's documentation — a real docs site (sticky sidebar nav +
  * sections), one level under the showcase homepage.
  */
 $version = Runner::get('version');
@@ -14,11 +14,11 @@ $version = Runner::get('version');
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Docs — api-pro</title>
+<title>Docs — gerogo</title>
 <style>
   :root {
     --bg: #0f1720; --panel: #182430; --panel-2: #1e2c3a; --border: #2b3a4a;
-    --text: #e6edf3; --muted: #8b9bab; --accent: #4da3ff;
+    --text: #e6edf3; --muted: #8b9bab; --accent: #74e18b;
     --get: #2f9e5b; --post: #c98a1a; --put: #3d7fc9; --delete: #d64545;
   }
   * { box-sizing: border-box; }
@@ -77,7 +77,7 @@ $version = Runner::get('version');
 <body>
 
 <header class="site-header">
-  <div class="brand"><span class="dot">●</span> api-pro <span class="version">v<?= Page::html($version) ?></span></div>
+  <div class="brand"><span class="dot">●</span> gerogo <span class="version">v<?= Page::html($version) ?></span></div>
   <nav class="site-nav">
     <a href="/ap/v1/site">Home</a>
     <a href="/ap/v1/site/docs" class="current">Docs</a>
@@ -114,11 +114,11 @@ $version = Runner::get('version');
   </nav>
 
   <main class="content">
-    <p class="lead">Everything api-pro does, in the order you'll actually use it — from an empty project to a running, documented API.</p>
+    <p class="lead">Everything gerogo does, in the order you'll actually use it — from an empty project to a running, documented API.</p>
 
     <section class="doc" id="overview">
       <h2>Overview</h2>
-      <p>api-pro is a small PHP framework built around the same ideas Spring Boot uses: attributes declare routing instead of a separate routes file, a container autowires constructors instead of manual instantiation, and one uniform response envelope replaces ad-hoc array shapes. There's no build step and no framework binary — it's PHP files, autoloaded by Composer, run by PHP's own built-in server or any standard web server.</p>
+      <p>gerogo is a small PHP framework built around the same ideas Spring Boot uses: attributes declare routing instead of a separate routes file, a container autowires constructors instead of manual instantiation, and one uniform response envelope replaces ad-hoc array shapes. There's no build step and no framework binary — it's PHP files, autoloaded by Composer, run by PHP's own built-in server or any standard web server.</p>
       <p class="muted">Everything here is real — every code sample on this page is copied from a controller actually running in this app.</p>
     </section>
 
@@ -139,7 +139,7 @@ $version = Runner::get('version');
 │   ├── page.html
 │   └── page/
 ├── packages/              </span># the framework itself, as packages<span class="c">
-│   ├── api-pro/           </span># core: Kernel, Router, Container, Packet...<span class="c">
+│   ├── gerogo/           </span># core: Kernel, Router, Container, Packet...<span class="c">
 │   ├── pro-sql/           </span># QueryBuilder, ProRepo<span class="c">
 │   ├── session/           </span># stateless JWT sessions<span class="c">
 │   └── tester/             </span># the API explorer at /tester<span class="c">
@@ -160,7 +160,7 @@ $version = Runner::get('version');
         <tr><td><code>apc build --clean</code></td><td>Delete the whole <code>runner/</code> folder first, then build as above.</td></tr>
         <tr><td><code>apc clean</code></td><td>Delete the whole <code>runner/</code> folder (and the route cache) — no rebuild.</td></tr>
         <tr><td><code>apc ... --local, --production</code></td><td>Which <code>.env.&lt;env&gt;</code> to boot from (else a real <code>APP_ENV</code> env var, else <code>local</code>) — works with any command.</td></tr>
-        <tr><td><code>apc install [version]</code></td><td>No module (or <code>api-pro</code>): resolve every module in <code>app.php</code> and verify the app boots.</td></tr>
+        <tr><td><code>apc install [version]</code></td><td>No module (or <code>gerogo</code>): resolve every module in <code>app.php</code> and verify the app boots.</td></tr>
         <tr><td><code>apc install &lt;module&gt; [version]</code></td><td>Any other module: show its resolved version and whether/how <code>app.php</code> references it.</td></tr>
       </table>
       <p class="muted">Route compilation only ever caches to disk outside <code>env: local</code> — in local development every request recompiles fresh, so editing a controller takes effect immediately.</p>
@@ -253,7 +253,7 @@ $this->session->createRefresh((string) $user[<span class="s">'id'</span>]);
 
     <section class="doc" id="page">
       <h2>Pages</h2>
-      <p><code>ApiPro\Page</code> is <code>Packet</code>'s counterpart for HTML instead of JSON. Two modes: a fluent builder filling in <code>lib/page.html</code>'s placeholders, or <strong>view mode</strong> — a complete, hand-written PHP file under <code>lib/page/</code>, with <code>props()</code> extracted as real local variables. This page, and the homepage, are both view-mode pages.</p>
+      <p><code>Gerogo\Page</code> is <code>Packet</code>'s counterpart for HTML instead of JSON. Two modes: a fluent builder filling in <code>lib/page.html</code>'s placeholders, or <strong>view mode</strong> — a complete, hand-written PHP file under <code>lib/page/</code>, with <code>props()</code> extracted as real local variables. This page, and the homepage, are both view-mode pages.</p>
       <pre class="code-block"><span class="k">return</span> (<span class="k">new</span> Page())
     -&gt;view(<span class="s">'HomePage'</span>)
     -&gt;props([<span class="s">'posts'</span> =&gt; $this-&gt;postService-&gt;all()]);</pre>
