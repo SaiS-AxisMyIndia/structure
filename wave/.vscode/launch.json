@@ -1,0 +1,41 @@
+{
+  // Android/iOS configs need the "React Native Tools" VS Code extension
+  // (msjsdiag.vscode-react-native) - it registers the "reactnative" debug
+  // type these use. Web uses VS Code's built-in JavaScript debugger
+  // instead, since react-native-web (see webpack.config.js) turns it into
+  // an ordinary web app once bundled.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Android",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "android"
+    },
+    {
+      "name": "Run iOS",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "ios"
+    },
+    {
+      "name": "Attach to packager",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "attach"
+    },
+    {
+      "name": "Run Web",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:8080",
+      "webRoot": "${workspaceFolder}",
+      // Starts `npm run web` (webpack-dev-server) automatically - see
+      // .vscode/tasks.json - so hitting Run/F5 here doesn't require a
+      // dev server already running in another terminal first.
+      "preLaunchTask": "Start Web (webpack)"
+    }
+  ]
+}

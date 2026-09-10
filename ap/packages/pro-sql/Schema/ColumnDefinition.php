@@ -15,7 +15,9 @@ final class ColumnDefinition
 {
     /**
      * @param string $sqlType a full MySQL column type, e.g. "VARCHAR(255)", "INT UNSIGNED", "DATETIME"
-     * @param array{table: string, column: string}|null $references set only for a #[Link]'d column
+     * @param array{table: string, column: string, onDelete: ?string, onUpdate: ?string}|null $references
+     *        set only for a #[Link]'d column; onDelete/onUpdate are a ReferentialAction's ->value
+     *        (e.g. "CASCADE"), or null when that clause wasn't declared — see Link's docblock
      */
     public function __construct(
         public readonly string $name,
@@ -42,6 +44,19 @@ final class ColumnDefinition
         // EntityDefinition::$uniqueGroups instead, not here — it isn't a
         // property of one column.
         public readonly bool $unique = false,
+        // From an int-valued #[Enum] — the exact allowed values, in
+        // declaration order. Set ONLY there: a string-valued #[Enum] (or
+        // a real string-backed PHP enum) needs no separate list, since
+        // its values already ARE $sqlType (ENUM('a','b',...)) — see
+        // EntityScanner::enumColumn(). DdlGenerator turns this into an
+        // inline `CHECK (... IN (...))` on the column.
+        //
+        // @var list<int>|null
+        public readonly ?array $checkValues = null,
+        // From #[Enum(index: true)] — a plain, non-unique index. Unlike
+        // $unique/$checkValues this isn't a property EntityScanner ever
+        // sets on its own; it only ever comes from that one attribute.
+        public readonly bool $index = false,
     ) {
     }
 }

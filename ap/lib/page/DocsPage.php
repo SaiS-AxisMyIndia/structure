@@ -95,7 +95,7 @@ $version = Runner::get('version');
     <ul>
       <li><a href="#overview">Overview</a></li>
       <li><a href="#structure">Project structure</a></li>
-      <li><a href="#cli">The <code>apc</code> CLI</a></li>
+      <li><a href="#cli">The <code>gg</code> CLI</a></li>
     </ul>
     <h4>Building an API</h4>
     <ul>
@@ -126,8 +126,8 @@ $version = Runner::get('version');
       <h2>Project structure</h2>
       <span class="doc-badge">project layout</span>
       <pre class="code-block"><span class="c">ap/
-├── apc                    </span># the CLI entry point<span class="c">
-├── app.php                </span># name, version, env, module list<span class="c">
+├── gg                    </span># the CLI entry point<span class="c">
+├── manifest.php                </span># name, version, env, module list<span class="c">
 ├── index.php              </span># front controller<span class="c">
 ├── runner/                </span># boot-time config (never web-reachable)<span class="c">
 │   ├── runner.php
@@ -151,17 +151,17 @@ $version = Runner::get('version');
     </section>
 
     <section class="doc" id="cli">
-      <h2>The <code>apc</code> CLI</h2>
+      <h2>The <code>gg</code> CLI</h2>
       <table class="doc-table">
         <tr><th>Command</th><th>What it does</th></tr>
-        <tr><td><code>apc -v</code></td><td>Print the app's name/version, plus every <code>packages/*</code> package's.</td></tr>
-        <tr><td><code>apc start [host:port]</code></td><td>Clean + rebuild, then start PHP's built-in server (default <code>127.0.0.1:7070</code>) — prints the <code>/tester</code>/<code>/app-viewer</code> URL too, whichever's enabled.</td></tr>
-        <tr><td><code>apc build</code></td><td>Regenerate <code>runner/</code> in place, force-compile + cache the route table, run every module's build step.</td></tr>
-        <tr><td><code>apc build --clean</code></td><td>Delete the whole <code>runner/</code> folder first, then build as above.</td></tr>
-        <tr><td><code>apc clean</code></td><td>Delete the whole <code>runner/</code> folder (and the route cache) — no rebuild.</td></tr>
-        <tr><td><code>apc ... --local, --production</code></td><td>Which <code>.env.&lt;env&gt;</code> to boot from (else a real <code>APP_ENV</code> env var, else <code>local</code>) — works with any command.</td></tr>
-        <tr><td><code>apc install [version]</code></td><td>No module (or <code>gerogo</code>): resolve every module in <code>app.php</code> and verify the app boots.</td></tr>
-        <tr><td><code>apc install &lt;module&gt; [version]</code></td><td>Any other module: show its resolved version and whether/how <code>app.php</code> references it.</td></tr>
+        <tr><td><code>gg -v</code></td><td>Print the app's name/version, plus every <code>packages/*</code> package's.</td></tr>
+        <tr><td><code>gg start [host:port]</code></td><td>Clean + rebuild, then start PHP's built-in server (default <code>127.0.0.1:7070</code>) — prints the <code>/tester</code>/<code>/app-viewer</code> URL too, whichever's enabled.</td></tr>
+        <tr><td><code>gg build</code></td><td>Regenerate <code>runner/</code> in place, force-compile + cache the route table, run every module's build step.</td></tr>
+        <tr><td><code>gg build --clean</code></td><td>Delete the whole <code>runner/</code> folder first, then build as above.</td></tr>
+        <tr><td><code>gg clean</code></td><td>Delete the whole <code>runner/</code> folder (and the route cache) — no rebuild.</td></tr>
+        <tr><td><code>gg ... --local, --production</code></td><td>Which <code>.env.&lt;env&gt;</code> to boot from (else a real <code>APP_ENV</code> env var, else <code>local</code>) — works with any command.</td></tr>
+        <tr><td><code>gg install [version]</code></td><td>No module (or <code>gerogo</code>): resolve every module in <code>manifest.php</code> and verify the app boots.</td></tr>
+        <tr><td><code>gg install &lt;module&gt; [version]</code></td><td>Any other module: show its resolved version and whether/how <code>manifest.php</code> references it.</td></tr>
       </table>
       <p class="muted">Route compilation only ever caches to disk outside <code>env: local</code> — in local development every request recompiles fresh, so editing a controller takes effect immediately.</p>
     </section>

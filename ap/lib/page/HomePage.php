@@ -152,7 +152,7 @@ $version = Runner::get('version');
       <div class="feature"><div class="icon">✓</div><h3>Typed input validation</h3><p><code>InputBag</code>'s <code>getString()</code>/<code>getInt()</code>/<code>getMail()</code>/etc. validate and coerce query/body/path params, 400-ing automatically on a bad value.</p></div>
       <div class="feature"><div class="icon">DB</div><h3>ProSql</h3><p>A lazy PDO wrapper, a fluent parameter-bound query builder, and a base <code>ProRepo</code> for straightforward CRUD.</p></div>
       <div class="feature"><div class="icon">▤</div><h3>Tester</h3><p>A Swagger-like explorer at <code>/tester</code> — every route, its real fields (required/optional, typed), generated straight from your source.</p></div>
-      <div class="feature"><div class="icon">$_</div><h3><code>apc</code> CLI</h3><p><code>apc start</code>, <code>apc build</code>, <code>apc clean</code>, <code>apc install</code> — build, run, and manage modules from one command.</p></div>
+      <div class="feature"><div class="icon">$_</div><h3><code>gg</code> CLI</h3><p><code>gg start</code>, <code>gg build</code>, <code>gg clean</code>, <code>gg install</code> — build, run, and manage modules from one command.</p></div>
     </div>
   </section>
 

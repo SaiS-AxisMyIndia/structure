@@ -1,5 +1,5 @@
 {
-    "name": "paradigm/session",
+    "name": "codesignificant/session",
     "description": "Session: stateless, JWT-style session tokens (signed, optionally encrypted) + a SessionMiddleware, plugging into gerogo's middleware pipeline.",
     "type": "library",
     "version": "1.0.0",
@@ -7,7 +7,7 @@
     "require": {
         "php": ">=8.1",
         "ext-openssl": "*",
-        "paradigm/gerogo": "*"
+        "codesignificant/gerogo": "*"
     },
     "repositories": [
         { "type": "path", "url": "../gerogo" }

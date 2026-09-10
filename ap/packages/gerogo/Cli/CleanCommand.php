@@ -7,15 +7,15 @@ namespace Gerogo\Cli;
 use Gerogo\Runner;
 
 /**
- * `apc clean` — deletes the whole runner/ directory, completely, and
- * nothing else. Same removal `apc build --clean` does before it
+ * `gg clean` — deletes the whole runner/ directory, completely, and
+ * nothing else. Same removal `gg build --clean` does before it
  * regenerates runner/ from scratch, but WITHOUT the regenerate step
- * afterwards — this command only tears down. Run `apc build` (or
- * `apc build --clean`, equivalent here since there's nothing left to
+ * afterwards — this command only tears down. Run `gg build` (or
+ * `gg build --clean`, equivalent here since there's nothing left to
  * delete) afterwards to rebuild it.
  *
  * Also clears the cached route table, for the same reason
- * `apc build --clean` does: a route cache pointing at controllers that
+ * `gg build --clean` does: a route cache pointing at controllers that
  * runner/'s own (now-deleted) config no longer backs is worse than no
  * cache at all.
  */
@@ -28,7 +28,7 @@ final class CleanCommand implements Command
     public function run(array $args): int
     {
         if ($args !== []) {
-            fwrite(STDERR, "Usage: apc clean\n");
+            fwrite(STDERR, "Usage: gg clean\n");
 
             return 1;
         }

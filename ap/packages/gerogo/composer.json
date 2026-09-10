@@ -1,5 +1,5 @@
 {
-    "name": "paradigm/gerogo",
+    "name": "codesignificant/gerogo",
     "description": "gerogo: Spring-Boot-style PHP micro-framework package — DI container, attribute-based routing, Kernel bootstrap.",
     "type": "library",
     "version": "1.0.0",

@@ -8,7 +8,7 @@ use Gerogo\Runner;
 use Throwable;
 
 /**
- * `apc build` — the deploy-time build step. Every run regenerates every
+ * `gg build` — the deploy-time build step. Every run regenerates every
  * runner/<name>.php file IN PLACE from each module's own
  * Module::runnerTemplate() (runner/controllers.php and
  * runner/entities.php in particular come back from real filesystem
@@ -22,7 +22,7 @@ use Throwable;
  * of making the first real request pay for it. Every step prints its own
  * "... done" line as it finishes.
  *
- * `apc build -c|--clean` does the exact same thing, except the whole
+ * `gg build -c|--clean` does the exact same thing, except the whole
  * runner/ directory is deleted first — nothing hand-edited (or left
  * over from a partially-wiped directory) survives; only what actually
  * gets regenerated does. Safe even if runner/ is entirely missing to
@@ -30,7 +30,7 @@ use Throwable;
  *
  * `-f`/`--flavour <name>` (or a real APP_ENV process env var, else
  * 'local') picks which .env.<name> file this build boots from —
- * resolved once, up front, by the `apc` script itself before
+ * resolved once, up front, by the `gg` script itself before
  * Runner::boot() ever runs; see that script's own comment for why it has
  * to happen there.
  */
@@ -45,7 +45,7 @@ final class BuildCommand implements Command
         // The configuration set for running — the one file that loads
         // .env.<env>, resolves modules, compiles routes, and hands back
         // the fully resolved config. Nothing else should load .env.<env>,
-        // require app.php, or read runner/*.php directly — everything
+        // require manifest.php, or read runner/*.php directly — everything
         // downstream asks Runner for it.
 
         $basePath = dirname(__DIR__);
@@ -66,11 +66,11 @@ final class BuildCommand implements Command
     /**
      * Runs a full build (writeRunnerFiles() + warmRoutes() + every
      * module's own build() hook) ONLY if runner/ doesn't exist at all —
-     * a fresh checkout, or one `apc clean` just wiped. `apc start`
+     * a fresh checkout, or one `gg clean` just wiped. `gg start`
      * (StartCommand) calls this before spawning anything: Runner::boot()
      * tolerates a missing runner/<name>.php by degrading that config key
      * to [] rather than fataling (see its own comment for why) — which
-     * means, without this check, `apc start` against a missing runner/
+     * means, without this check, `gg start` against a missing runner/
      * would report success while every module's controllers()/entities()/
      * etc. silently resolved to nothing.
      *
@@ -89,7 +89,7 @@ final class BuildCommand implements Command
 
         Runner::boot($basePath, $flavour);
 
-        echo "runner/ not found — building first (apc build)...\n";
+        echo "runner/ not found — building first (gg build)...\n";
 
         return (new self($basePath))->run([]) === 0;
     }
@@ -98,7 +98,7 @@ final class BuildCommand implements Command
     {
         foreach ($args as $arg) {
             if (!in_array($arg, ['-c', '--clean'], true)) {
-                fwrite(STDERR, "Usage: apc build [-c|--clean]\n");
+                fwrite(STDERR, "Usage: gg build [-c|--clean]\n");
 
                 return 1;
             }
@@ -119,7 +119,7 @@ final class BuildCommand implements Command
 
         $errors = $this->writeRunnerFiles();
 
-        // Runner::boot() already ran once — by the `apc` script, before
+        // Runner::boot() already ran once — by the `gg` script, before
         // this command's args were even parsed — using whatever runner/
         // looked like at that moment (possibly wiped, possibly stale).
         // The files just written need Runner's cached config/module list

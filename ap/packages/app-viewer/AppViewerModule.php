@@ -15,7 +15,7 @@ use Gerogo\Runner;
  * on/off pattern as Tester\TesterModule. Binds nothing into the
  * container; there's nothing to configure beyond that one switch.
  * Self-configuring, no constructor args — so it can be booted purely
- * from app.php's `'@app-viewer' => '1.0.0'` entry.
+ * from manifest.php's `'@app-viewer' => '1.0.0'` entry.
  */
 class AppViewerModule extends Module
 {

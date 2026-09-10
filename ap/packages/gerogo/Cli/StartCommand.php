@@ -8,12 +8,12 @@ use Gerogo\Runner;
 use Throwable;
 
 /**
- * `apc start [host:port] [-f|--flavour <name>]` — first makes sure
+ * `gg start [host:port] [-f|--flavour <name>]` — first makes sure
  * runner/ actually exists at all (BuildCommand::ensureBuilt(): a full
- * `apc build` if it's missing entirely — a fresh checkout, or one
- * `apc clean` just wiped — a no-op otherwise), then always refreshes
+ * `gg build` if it's missing entirely — a fresh checkout, or one
+ * `gg clean` just wiped — a no-op otherwise), then always refreshes
  * just the route cache (clearRoutesCache() + warmRoutes() — the same
- * pair `apc build` itself calls, minus the runner/*.php regeneration
+ * pair `gg build` itself calls, minus the runner/*.php regeneration
  * step, so the server never serves a stale route table left over from
  * an earlier run without paying for a full rebuild on every single
  * start), then starts PHP's built-in web server bound to that address
@@ -22,8 +22,8 @@ use Throwable;
  * too, whichever of the two is enabled.
  *
  * Default address is 127.0.0.1:<PORT in .env.<flavour>>, or
- * 127.0.0.1:7070 if that flavour has none. `apc start 8081` is shorthand
- * for `apc start 127.0.0.1:8081`. -f/--flavour is resolved by the `apc`
+ * 127.0.0.1:7070 if that flavour has none. `gg start 8081` is shorthand
+ * for `gg start 127.0.0.1:8081`. -f/--flavour is resolved by the `gg`
  * script itself, before Runner::boot() ever runs (see its own comment) —
  * $args here is already just the positional host:port, nothing else.
  */
@@ -96,14 +96,14 @@ final class StartCommand implements Command
             // moment its child process exists — it has no way to know a
             // PID already sitting in that file belongs to a still-live
             // server rather than a stale one. Left unchecked, a second
-            // `apc start` for the same flavour would overwrite that
+            // `gg start` for the same flavour would overwrite that
             // pidfile with its own (likely doomed to fail — the port's
             // already taken) child's PID, and then delete it entirely
             // once that child dies for failing to bind — leaving the
             // FIRST, still-running server with no pidfile at all, and
-            // `apc stop` unable to find it ever again.
+            // `gg stop` unable to find it ever again.
             fwrite(STDERR, sprintf(
-                "%s is already running (pid %d) — stop it first with `apc stop`.\n",
+                "%s is already running (pid %d) — stop it first with `gg stop`.\n",
                 $flavour,
                 $existingPid,
             ));

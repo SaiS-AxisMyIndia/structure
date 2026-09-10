@@ -8,22 +8,22 @@ use Gerogo\Runner;
 use Throwable;
 
 /**
- * `apc install [module] [version]` — with no module given (or `gerogo`
- * itself, the app's own name — see app.php's `'name'`), validates that
- * every module app.php references actually resolves (same check
+ * `gg install [module] [version]` — with no module given (or `gerogo`
+ * itself, the app's own name — see manifest.php's `'name'`), validates that
+ * every module manifest.php references actually resolves (same check
  * PackageResolver runs on a real boot, surfaced here so a broken
  * reference is caught by a deploy script instead of the first request to
- * hit it), and with a version argument, checks it against app.php's own
+ * hit it), and with a version argument, checks it against manifest.php's own
  * declared version.
  *
  * Given any OTHER module name, shows that packages/<name>'s own
- * composer.json version and whether/at-what-version app.php's `modules`
+ * composer.json version and whether/at-what-version manifest.php's `modules`
  * list references it instead — a version argument there validates the
  * installed composer.json version matches exactly (the same check
  * PackageResolver runs at boot). This is the merged former
- * `apc module <name> [version]`.
+ * `gg module <name> [version]`.
  *
- * Read-only either way — this never edits app.php.
+ * Read-only either way — this never edits manifest.php.
  */
 final class InstallCommand implements Command
 {
@@ -52,7 +52,7 @@ final class InstallCommand implements Command
             if ($expected === $appVersion) {
                 printf("  ✓ matches expected version %s\n", $expected);
             } else {
-                fwrite(STDERR, "  ✗ expected $expected, app.php declares $appVersion\n");
+                fwrite(STDERR, "  ✗ expected $expected, manifest.php declares $appVersion\n");
                 $ok = false;
             }
         }
@@ -96,9 +96,9 @@ final class InstallCommand implements Command
         $installedVersion = is_array($composer) ? ($composer['version'] ?? 'unknown') : 'unknown';
         $declaredVersion = $this->declaredVersionInAppPhp($name);
 
-        printf("%-12s %s\n", 'Package:', is_array($composer) ? ($composer['name'] ?? "paradigm/$name") : "paradigm/$name");
+        printf("%-12s %s\n", 'Package:', is_array($composer) ? ($composer['name'] ?? "codesignificant/$name") : "codesignificant/$name");
         printf("%-12s %s\n", 'Version:', $installedVersion);
-        printf("%-12s %s\n", 'In app.php:', $declaredVersion ?? '(not referenced)');
+        printf("%-12s %s\n", 'In manifest.php:', $declaredVersion ?? '(not referenced)');
 
         if ($expected === null) {
             return 0;

@@ -55,8 +55,18 @@ use ReflectionObject;
  */
 final class RouteCompiler
 {
-    /** @return list<array{method: string, regex: string, controller: class-string, action: string, path: string, isPage: bool, prefix: string, comment: string|null, fields: list<array{source: string, key: string, type: string, required: bool, kind: string}>, middleware: list<array{class: class-string, overrides: array<string, mixed>}>}> */
-    public static function compile(string $controllerClass, string $modulePrefix = ''): array
+    /**
+     * @param string $modulePrefix The module's #[BaseRoot] — used for
+     *     #[RestController] classes, and for #[PageController] classes
+     *     too when $pageModulePrefix is null.
+     * @param string|null $pageModulePrefix The module's #[PageRoot], if
+     *     any — used instead of $modulePrefix for #[PageController]
+     *     classes, so a module's pages can live under a different base
+     *     path than its REST routes.
+     *
+     * @return list<array{method: string, regex: string, controller: class-string, action: string, path: string, isPage: bool, prefix: string, comment: string|null, fields: list<array{source: string, key: string, type: string, required: bool, kind: string}>, middleware: list<array{class: class-string, overrides: array<string, mixed>}>}>
+     */
+    public static function compile(string $controllerClass, string $modulePrefix = '', ?string $pageModulePrefix = null): array
     {
         $reflector = new ReflectionClass($controllerClass);
         $restAttributes = $reflector->getAttributes(RestController::class);
@@ -74,7 +84,7 @@ final class RouteCompiler
 
         $isPageController = $pageAttributes !== [];
         $classAttribute = $isPageController ? $pageAttributes[0] : $restAttributes[0];
-        $prefix = $modulePrefix . $classAttribute->newInstance()->prefix;
+        $prefix = ($isPageController ? $pageModulePrefix ?? $modulePrefix : $modulePrefix) . $classAttribute->newInstance()->prefix;
         $classMiddleware = self::middlewareOf($reflector->getAttributes(Middleware::class));
 
         $routes = [];
@@ -133,7 +143,7 @@ final class RouteCompiler
      * it themselves; a #[RestController] action must NEVER declare it —
      * Page rendering belongs to #[PageController] alone, Packet (or
      * array, or nothing) to #[RestController]. Checked once here, at
-     * compile time — fails loudly, at `apc build`/the first request that
+     * compile time — fails loudly, at `gg build`/the first request that
      * compiles this controller — rather than as a silent runtime
      * surprise. Uses the exact same reflection Page::isReturnedBy()
      * already exposes for Tester/AppViewer's own route filtering, so

@@ -35,7 +35,7 @@ class Kernel
         // AppViewer re-invoking a specific Page-returning controller
         // action on demand.
         $this->container->singleton(Container::class, fn (): Container => $this->container);
-        $this->router = new Router($this->container, Runner::routes());
+        $this->router = new Router($this->container, Runner::routes(), Runner::get('basePage'));
     }
 
     /** @param array<string, mixed> $config */

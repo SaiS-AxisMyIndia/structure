@@ -7,8 +7,8 @@ namespace Gerogo\Cli;
 use Gerogo\Runner;
 
 /**
- * `apc stop [-f|--flavour <name>]` — stops the ONE server that a matching
- * `apc start` (same flavour) launched, wherever it's running (a
+ * `gg stop [-f|--flavour <name>]` — stops the ONE server that a matching
+ * `gg start` (same flavour) launched, wherever it's running (a
  * different terminal, a background process, another deploy step
  * entirely) — it doesn't need to be this process's child.
  * `Runner::get('env')` here is exactly what StartCommand used to name

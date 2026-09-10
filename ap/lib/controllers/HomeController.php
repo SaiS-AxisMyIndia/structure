@@ -30,7 +30,7 @@ class HomeController
     #[GetMapping]
     public function home(Request $request): Page
     {
-        $name = $request->body->getString('name', 'World');
+        $name = $request->body->getString('name');
         $request->body->addJson('posts', $this->postService->all());
 
         return new Page($request, 'HomePage');

@@ -6,7 +6,7 @@ namespace Gerogo\Cli;
 
 use Gerogo\Runner;
 
-/** `apc -v` / `apc --version` — the app's own version, plus every packages/* package's. */
+/** `gg -v` / `gg --version` — the app's own version, plus every packages/* package's. */
 final class VersionCommand implements Command
 {
     public function __construct(private readonly string $basePath)
@@ -22,7 +22,7 @@ final class VersionCommand implements Command
             Runner::get('env', 'local'),
         );
 
-        // Same default address `apc start` binds to when none is given —
+        // Same default address `gg start` binds to when none is given —
         // there's no live server to ask at version-check time, so this is
         // "where /tester and /app-viewer would be", not "where they
         // currently are". Each enabled one prints on its own line.

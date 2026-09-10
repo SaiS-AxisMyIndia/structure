@@ -1,12 +1,12 @@
 {
-    "name": "paradigm/app-viewer",
+    "name": "codesignificant/app-viewer",
     "description": "AppViewer: a Tester-style explorer for this app's Page-returning routes, rendering each one live and showing the props it was built with — served at /app-viewer.",
     "type": "library",
     "version": "1.0.0",
     "license": "proprietary",
     "require": {
         "php": ">=8.1",
-        "paradigm/gerogo": "*"
+        "codesignificant/gerogo": "*"
     },
     "repositories": [
         { "type": "path", "url": "../gerogo" }

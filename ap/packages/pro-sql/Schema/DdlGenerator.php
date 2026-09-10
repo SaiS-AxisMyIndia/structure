@@ -31,6 +31,12 @@ final class DdlGenerator
             }
         }
 
+        foreach ($entity->columns as $column) {
+            if ($column->index) {
+                $lines[] = '  ' . $this->indexClause($entity->table, $column->name);
+            }
+        }
+
         foreach ($entity->uniqueGroups as $group) {
             $lines[] = '  ' . $this->uniqueKeyClause($entity->table, $group);
         }
@@ -52,6 +58,18 @@ final class DdlGenerator
     public function addForeignKey(string $table, ColumnDefinition $column): string
     {
         return "ALTER TABLE `{$table}` ADD " . $this->foreignKeyClause($table, $column) . ';';
+    }
+
+    /**
+     * A standalone ALTER for a plain #[Enum(index: true)] index
+     * SchemaBuilder is adding onto an already-existing table's new
+     * column (as opposed to one inlined at CREATE TABLE time, for a
+     * brand-new table) — the same "inline when new, standalone ALTER
+     * when retrofitted onto existing" split as addForeignKey().
+     */
+    public function addIndex(string $table, string $column): string
+    {
+        return "ALTER TABLE `{$table}` ADD " . $this->indexClause($table, $column) . ';';
     }
 
     /**
@@ -101,15 +119,41 @@ final class DdlGenerator
             $sql .= ' UNIQUE';
         }
 
+        // From an int-valued #[Enum] — see ColumnDefinition::$checkValues.
+        // Inline, not a separate ALTER: MySQL 8.0.16+ accepts CHECK right
+        // on the column definition, in both CREATE TABLE and ADD/MODIFY
+        // COLUMN, so this one line covers all three call sites for free.
+        if ($column->checkValues !== null) {
+            $sql .= " CHECK (`{$column->name}` IN (" . implode(',', $column->checkValues) . '))';
+        }
+
         return $sql;
+    }
+
+    private function indexClause(string $table, string $column): string
+    {
+        return "KEY `idx_{$table}_{$column}` (`{$column}`)";
     }
 
     /** @param ColumnDefinition $column must have $column->references !== null */
     private function foreignKeyClause(string $table, ColumnDefinition $column): string
     {
         $name = "fk_{$table}_{$column->name}";
+        $sql = "CONSTRAINT `{$name}` FOREIGN KEY (`{$column->name}`) REFERENCES `{$column->references['table']}` (`{$column->references['column']}`)";
 
-        return "CONSTRAINT `{$name}` FOREIGN KEY (`{$column->name}`) REFERENCES `{$column->references['table']}` (`{$column->references['column']}`)";
+        // Omitted entirely (not e.g. "ON DELETE RESTRICT") when #[Link]
+        // didn't declare one — MySQL's own implicit default already IS
+        // RESTRICT, so leaving the clause out changes nothing about the
+        // constraint's behavior, just its DDL text.
+        if ($column->references['onDelete'] ?? null) {
+            $sql .= " ON DELETE {$column->references['onDelete']}";
+        }
+
+        if ($column->references['onUpdate'] ?? null) {
+            $sql .= " ON UPDATE {$column->references['onUpdate']}";
+        }
+
+        return $sql;
     }
 
     /** @param list<string> $columns */

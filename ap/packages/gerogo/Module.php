@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Gerogo;
 
 use Gerogo\Attributes\BaseRoot;
+use Gerogo\Attributes\PageRoot;
 use ReflectionClass;
 
 /**
@@ -43,6 +44,27 @@ abstract class Module
     }
 
     /**
+     * The base path prepended to every #[PageController] this module
+     * contributes — the #[PageRoot] counterpart to prefix()'s
+     * #[BaseRoot], for a module whose pages need to live under a
+     * different base path than its REST routes (e.g. REST under
+     * '/api/v1' while pages are served at the site root '/').
+     *
+     * Reads #[PageRoot('/some/prefix')] off the concrete subclass by
+     * default, falling back to prefix() (i.e. #[BaseRoot]) when the
+     * module declares no #[PageRoot] at all — a module with no
+     * page-specific concerns doesn't need to think about this. Override
+     * this method directly instead if the prefix needs to be computed at
+     * runtime; a method override always takes priority, same as prefix().
+     */
+    public function pagePrefix(): string
+    {
+        $attributes = (new ReflectionClass($this))->getAttributes(PageRoot::class);
+
+        return $attributes === [] ? $this->prefix() : $attributes[0]->newInstance()->prefix;
+    }
+
+    /**
      * Registers this module's controllers directly on a Router. Kernel
      * doesn't call this anymore — it builds the Router from Runner::routes()
      * (every module's controllers, already compiled by RouteCompiler) — but
@@ -52,12 +74,12 @@ abstract class Module
     public function routes(Router $router): void
     {
         foreach ($this->controllers() as $controllerClass) {
-            $router->registerController($controllerClass, $this->prefix());
+            $router->registerController($controllerClass, $this->prefix(), $this->pagePrefix());
         }
     }
 
     /**
-     * Override to run this module's own part of `apc build` — anything
+     * Override to run this module's own part of `gg build` — anything
      * beyond the route compiling BuildCommand already does for every
      * module generically via Runner::warmRoutes(). Called once per
      * module (in Runner::modules() order) after routes are built; return
@@ -76,7 +98,7 @@ abstract class Module
 
     /**
      * Override to contribute this module's own runner/<name>.php
-     * file(s) — what `apc build --clean` writes when regenerating the
+     * file(s) — what `gg build --clean` writes when regenerating the
      * whole runner/ directory from scratch. Most modules have nothing
      * to do here and never override this at all: gerogo deliberately
      * doesn't know pro-sql's DB_* env vars, session's SESSION_* ones,

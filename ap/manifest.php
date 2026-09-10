@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 use App\Application;
+use Lib\Controllers\HomeController;
 
 return [
-    'name' => 'gerogo',
+    'name' => 'api-pro',
     'version' => $_ENV['VERSION'] ?? '1.0.0',
     'env' => $_ENV['APP_ENV'] ?? 'local',
     'base_path' => __DIR__,
+
+    'basePage' => [HomeController::class, 'home', ['name' => 'World']],
 
     'modules' => [
         '@pro-sql' => '1.0.0',

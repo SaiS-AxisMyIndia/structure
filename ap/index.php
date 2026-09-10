@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 // Front controller — every request is rewritten here by .htaccess.
 // This plays the role of the embedded server bootstrap in a Spring Boot
-// jar's main() method: boot the runner (autoload + .env + app.php,
+// jar's main() method: boot the runner (autoload + .env + manifest.php,
 // exactly once), then boot the Kernel and handle the request.
 
 // Raw PHP diagnostics (an E_WARNING from the require below, for
@@ -18,7 +18,7 @@ use Gerogo\CrashPage;
 use Gerogo\Kernel;
 
 // Wrapped in try/catch: this is the one place a broken BOOT itself (a
-// missing/wiped runner/, for instance — see `apc build --clean`) has to
+// missing/wiped runner/, for instance — see `gg build --clean`) has to
 // be handled, since nothing here can assume Kernel — or even Runner —
 // is safely usable yet. See CrashPage::respond()'s own comment.
 try {

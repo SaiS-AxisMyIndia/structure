@@ -13,7 +13,7 @@ use Gerogo\Runner;
  * Runner::get('session') — runner/session.php's SESSION_* config — the
  * same way Spring Security reads jwt.secret/jwt.expiration from
  * application.properties. Contributes no controllers. Self-configuring,
- * no constructor args — so it can be booted purely from app.php's
+ * no constructor args — so it can be booted purely from manifest.php's
  * `'@session' => '1.0.0'` entry.
  */
 class SessionModule extends Module

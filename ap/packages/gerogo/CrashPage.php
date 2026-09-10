@@ -16,7 +16,7 @@ namespace Gerogo;
  * real exception — a boot failure is infrastructure being broken, not
  * something a browser should ever have to make sense of. The real
  * detail (message, file:line, trace) still goes to prologs.log first
- * (see Log::crash()) and, in local dev, to the terminal `apc start`
+ * (see Log::crash()) and, in local dev, to the terminal `gg start`
  * itself is running in — that's where a developer actually looks to fix
  * this, not the response body. Responds HTTP 503.
  */
@@ -26,7 +26,7 @@ final class CrashPage
     {
         // Runner::boot() already tolerates every runner/*.php config
         // file being missing (see its own comment) — its only two real
-        // dependencies are app.php and vendor/autoload.php, neither of
+        // dependencies are manifest.php and vendor/autoload.php, neither of
         // which is what usually breaks here. Calling it again is a
         // no-op if it already succeeded once before this crash. Purely
         // best-effort, only so Log::crash()'s own LOGS check reflects a

@@ -3,19 +3,19 @@
 
 declare(strict_types=1);
 
-// apc — this project's CLI (gerogo console), the same idea as Laravel's
+// gg — this project's CLI (gerogo console), the same idea as Laravel's
 // `artisan` or Spring Boot's actuator/admin tooling: operational commands
 // that sit next to the app, not behind an HTTP route.
 //
-//   php apc -v                            app + every package's version
-//   php apc start [host:port]             clean + rebuild, then start PHP's built-in server (default host 127.0.0.1, port from PORT in .env.<flavour>, else 7070)
-//   php apc stop                          stop the ONE server a matching `apc start` began, wherever it's running
-//   php apc build                         regenerate runner/ in place, force-compile + cache the route table (deploy-time build step)
-//   php apc build -c | --clean            delete the whole runner/ folder first, then build as above
-//   php apc clean                         delete the whole runner/ folder (and route cache) — no rebuild
-//   php apc ... -f, --flavour <name>      which .env.<name> to boot from — local, production, staging, or any other name a real APP_ENV happens to carry (else that env var, else 'local')
-//   php apc install [version]             no module (or `gerogo`): validate every module's resolved version
-//   php apc install <name> [version]      any other module: show/validate its own resolved info
+//   php gg -v                            app + every package's version
+//   php gg start [host:port]             clean + rebuild, then start PHP's built-in server (default host 127.0.0.1, port from PORT in .env.<flavour>, else 7070)
+//   php gg stop                          stop the ONE server a matching `gg start` began, wherever it's running
+//   php gg build                         regenerate runner/ in place, force-compile + cache the route table (deploy-time build step)
+//   php gg build -c | --clean            delete the whole runner/ folder first, then build as above
+//   php gg clean                         delete the whole runner/ folder (and route cache) — no rebuild
+//   php gg ... -f, --flavour <name>      which .env.<name> to boot from — local, production, staging, or any other name a real APP_ENV happens to carry (else that env var, else 'local')
+//   php gg install [version]             no module (or `gerogo`): validate every module's resolved version
+//   php gg install <name> [version]      any other module: show/validate its own resolved info
 //
 // Runs the exact same Runner::boot() as an HTTP request would (module
 // resolution, route compiling/caching rules included) — this is not a

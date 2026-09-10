@@ -7,18 +7,21 @@ declare(strict_types=1);
 // $_ENV, which runner/runner.php already populated from .env.<env>
 // before this file is required.
 
-// TABLE_WRITE governs how far `apc build`'s entity-table sync (see
+// TABLE_WRITE governs how far `gg build`'s entity-table sync (see
 // ProSqlModule::build() / Schema\SchemaBuilder) is allowed to go —
-// 'fixed' (default): report only, nothing touched in the database;
-// 'update': safe/additive changes applied automatically; 'force': that
-// plus complex/destructive ones too. Validated here, not left to fail
+// 'update': safe/additive changes applied automatically; 'migrate'
+// (default): report only, nothing touched in the database — every
+// statement (dependency-ordered first, so linked tables come out in
+// an order that's actually runnable) is written into the migration
+// script instead; 'force': everything 'update' does, plus
+// complex/destructive changes too. Validated here, not left to fail
 // confusingly wherever it's first read — a typo fatals the build
-// immediately instead of silently behaving like 'fixed'.
-$tableWrite = $_ENV['TABLE_WRITE'] ?? 'fixed';
+// immediately instead of silently behaving like 'migrate'.
+$tableWrite = $_ENV['TABLE_WRITE'] ?? 'migrate';
 
-if (!in_array($tableWrite, ['fixed', 'update', 'force'], true)) {
+if (!in_array($tableWrite, ['update', 'migrate', 'force'], true)) {
     throw new InvalidArgumentException(
-        "TABLE_WRITE must be one of: fixed, update, force; got \"$tableWrite\".",
+        "TABLE_WRITE must be one of: update, migrate, force; got \"$tableWrite\".",
     );
 }
 

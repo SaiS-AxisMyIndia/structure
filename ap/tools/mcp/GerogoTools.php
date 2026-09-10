@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 /**
  * The actual capabilities gerogo's MCP dev-tool server exposes. Every
- * one either shells out to `apc` itself — so this never duplicates
- * `apc`'s own logic, just wraps it for an MCP client to call — or, for
+ * one either shells out to `gg` itself — so this never duplicates
+ * `gg`'s own logic, just wraps it for an MCP client to call — or, for
  * list_routes, boots Runner in a short-lived child process (see
  * list-routes.php) to read the compiled route table without needing a
  * server already running.
  *
- * Each tool's own PHP process (or `apc`'s) is fully independent of this
+ * Each tool's own PHP process (or `gg`'s) is fully independent of this
  * long-lived server process — a crash or fatal error in one tool call
  * can't take the MCP connection itself down.
  */
@@ -39,8 +39,8 @@ final class GerogoTools
                 ],
             ],
             [
-                'name' => 'apc_build',
-                'description' => "Run `apc build` — regenerates runner/ in place, force-compiles + caches the route table, and syncs the database schema for every #[ProEntity] class (per that flavour's TABLE_WRITE). Pass clean=true for `apc build --clean` (deletes the whole runner/ folder first).",
+                'name' => 'gg_build',
+                'description' => "Run `gg build` — regenerates runner/ in place, force-compiles + caches the route table, and syncs the database schema for every #[ProEntity] class (per that flavour's TABLE_WRITE). Pass clean=true for `gg build --clean` (deletes the whole runner/ folder first).",
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -51,8 +51,8 @@ final class GerogoTools
                 ],
             ],
             [
-                'name' => 'apc_install',
-                'description' => "Run `apc install` — with no module (or 'gerogo'), validates every app.php module reference actually resolves; with another module name, shows that package's own version and whether/how app.php references it.",
+                'name' => 'gg_install',
+                'description' => "Run `gg install` — with no module (or 'gerogo'), validates every manifest.php module reference actually resolves; with another module name, shows that package's own version and whether/how manifest.php references it.",
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -64,13 +64,13 @@ final class GerogoTools
                 ],
             ],
             [
-                'name' => 'apc_clean',
-                'description' => 'Run `apc clean` — deletes the whole runner/ folder and the cached route table, with no rebuild afterward.',
+                'name' => 'gg_clean',
+                'description' => 'Run `gg clean` — deletes the whole runner/ folder and the cached route table, with no rebuild afterward.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass(), 'additionalProperties' => false],
             ],
             [
-                'name' => 'apc_start',
-                'description' => "Start the app's PHP built-in server via `apc start`, in the BACKGROUND — this tool returns immediately once it's confirmed the server actually bound (or reports why it didn't); the server keeps running after this call returns. Use apc_stop to stop it.",
+                'name' => 'gg_start',
+                'description' => "Start the app's PHP built-in server via `gg start`, in the BACKGROUND — this tool returns immediately once it's confirmed the server actually bound (or reports why it didn't); the server keeps running after this call returns. Use gg_stop to stop it.",
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -81,8 +81,8 @@ final class GerogoTools
                 ],
             ],
             [
-                'name' => 'apc_stop',
-                'description' => "Stop a server a matching apc_start began, wherever it's running — via `apc stop`.",
+                'name' => 'gg_stop',
+                'description' => "Stop a server a matching gg_start began, wherever it's running — via `gg stop`.",
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => ['flavour' => $flavour],
@@ -101,11 +101,11 @@ final class GerogoTools
         try {
             $text = match ($name) {
                 'list_routes' => $this->listRoutes($arguments),
-                'apc_build' => $this->apcBuild($arguments),
-                'apc_install' => $this->apcInstall($arguments),
-                'apc_clean' => $this->runApc(['clean']),
-                'apc_start' => $this->apcStart($arguments),
-                'apc_stop' => $this->apcStop($arguments),
+                'gg_build' => $this->ggBuild($arguments),
+                'gg_install' => $this->ggInstall($arguments),
+                'gg_clean' => $this->runGg(['clean']),
+                'gg_start' => $this->ggStart($arguments),
+                'gg_stop' => $this->ggStop($arguments),
                 default => throw new \InvalidArgumentException("Unknown tool: $name"),
             };
 
@@ -126,7 +126,7 @@ final class GerogoTools
     }
 
     /** @param array<string, mixed> $arguments */
-    private function apcBuild(array $arguments): string
+    private function ggBuild(array $arguments): string
     {
         $args = ['build'];
 
@@ -134,11 +134,11 @@ final class GerogoTools
             $args[] = '--clean';
         }
 
-        return $this->runApc([...$args, ...$this->flavourFlags($arguments)]);
+        return $this->runGg([...$args, ...$this->flavourFlags($arguments)]);
     }
 
     /** @param array<string, mixed> $arguments */
-    private function apcInstall(array $arguments): string
+    private function ggInstall(array $arguments): string
     {
         $args = ['install'];
 
@@ -150,18 +150,18 @@ final class GerogoTools
             }
         }
 
-        return $this->runApc([...$args, ...$this->flavourFlags($arguments)]);
+        return $this->runGg([...$args, ...$this->flavourFlags($arguments)]);
     }
 
     /** @param array<string, mixed> $arguments */
-    private function apcStop(array $arguments): string
+    private function ggStop(array $arguments): string
     {
-        return $this->runApc(['stop', ...$this->flavourFlags($arguments)]);
+        return $this->runGg(['stop', ...$this->flavourFlags($arguments)]);
     }
 
     /**
-     * Deliberately NOT `runApc()` — `apc start` never exits on its own,
-     * so waiting for it to finish (what runApc()/proc_close() would do)
+     * Deliberately NOT `runGg()` — `gg start` never exits on its own,
+     * so waiting for it to finish (what runGg()/proc_close() would do)
      * would hang this tool call forever. Instead: launch it detached (a
      * shell `nohup ... &`, so its lifetime isn't tied to any resource
      * THIS process holds), give it a moment to either bind or fail fast,
@@ -169,7 +169,7 @@ final class GerogoTools
      *
      * @param array<string, mixed> $arguments
      */
-    private function apcStart(array $arguments): string
+    private function ggStart(array $arguments): string
     {
         $args = ['start'];
 
@@ -180,7 +180,7 @@ final class GerogoTools
         $args = [...$args, ...$this->flavourFlags($arguments)];
 
         // A single simple command, deliberately no `cd X &&` prefix (both
-        // PHP_BINARY and the apc path below are already absolute, so
+        // PHP_BINARY and the gg path below are already absolute, so
         // nothing here needs a working directory) — a `&&`-joined
         // compound run through shell_exec()'s underlying popen() makes
         // bash fork an extra subshell for the backgrounded job that, on
@@ -192,11 +192,11 @@ final class GerogoTools
         // in place), so this returns immediately either way. Confirmed
         // by direct reproduction — this exact difference is what caused
         // it, not a fluke.
-        $logFile = tempnam(sys_get_temp_dir(), 'apc-start-');
+        $logFile = tempnam(sys_get_temp_dir(), 'gg-start-');
         $command = sprintf(
             'nohup %s %s %s < /dev/null > %s 2>&1 & echo $!',
             escapeshellarg(PHP_BINARY),
-            escapeshellarg("$this->basePath/apc"),
+            escapeshellarg("$this->basePath/gg"),
             implode(' ', array_map('escapeshellarg', $args)),
             escapeshellarg($logFile),
         );
@@ -216,7 +216,7 @@ final class GerogoTools
             throw new \RuntimeException("Failed to start — it exited immediately:\n$output");
         }
 
-        return "Started (pid $pid), running in the background. Use apc_stop to stop it.\n\n$output";
+        return "Started (pid $pid), running in the background. Use gg_stop to stop it.\n\n$output";
     }
 
     /** @param array<string, mixed> $arguments @return list<string> */
@@ -226,15 +226,15 @@ final class GerogoTools
     }
 
     /** @param list<string> $args */
-    private function runApc(array $args): string
+    private function runGg(array $args): string
     {
-        return $this->exec([PHP_BINARY, "$this->basePath/apc", ...$args]);
+        return $this->exec([PHP_BINARY, "$this->basePath/gg", ...$args]);
     }
 
     /**
      * Blocks until the command exits — fine for build/install/clean/stop
      * (all naturally terminate on their own); never use this for
-     * apc_start, which doesn't.
+     * gg_start, which doesn't.
      *
      * @param list<string> $command
      */

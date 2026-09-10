@@ -8,7 +8,7 @@ use RuntimeException;
 
 /**
  * The one place environment (.env.local / .env.production / ...),
- * application (app.php), modules, and routes get resolved for the
+ * application (manifest.php), modules, and routes get resolved for the
  * running request — equivalent to Spring's
  * ApplicationContext: built once at startup, and everything downstream
  * (Kernel, every Module, every controller/service) asks it for a value
@@ -40,7 +40,7 @@ final class Runner
     /**
      * The real environments this app knows about out of the box — not a
      * closed/enforced set: a real APP_ENV process env var, or an explicit
-     * -f/--flavour apc flag, is free to name anything else too (see
+     * -f/--flavour gg flag, is free to name anything else too (see
      * envFilePath()'s own comment). Purely a documented default list.
      */
     public const STAGES = ['local', 'production', 'staging'];
@@ -55,7 +55,7 @@ final class Runner
      *        'production', 'staging' (see self::STAGES), or any other
      *        name a real APP_ENV happens to carry. There's no plain .env
      *        fallback: this app always knows which flavour it's running
-     *        as explicitly (a -f/--flavour apc flag, or a real APP_ENV
+     *        as explicitly (a -f/--flavour gg flag, or a real APP_ENV
      *        set in the actual process environment) rather than
      *        implicitly via whichever loose .env file happens to be
      *        sitting on disk. Defaults to a real APP_ENV env var if one
@@ -72,7 +72,7 @@ final class Runner
         self::loadEnvFile(self::envFilePath($basePath, $flavour));
         $_ENV['APP_ENV'] ??= $flavour;
 
-        $config = require "$basePath/app.php";
+        $config = require "$basePath/manifest.php";
         $config['base_path'] ??= $basePath;
 
         // Per-module config lives in runner/, one file per module, keyed
@@ -81,9 +81,9 @@ final class Runner
         // building its config from $_ENV itself.
         //
         // A missing file degrades to [] rather than fataling here —
-        // deliberately: this loop runs before ANY apc command (this is
-        // the one call every entry point makes first, `apc` included),
-        // so a hard require() would make `apc build --clean` — whose
+        // deliberately: this loop runs before ANY gg command (this is
+        // the one call every entry point makes first, `gg` included),
+        // so a hard require() would make `gg build --clean` — whose
         // whole job is regenerating a missing/wiped runner/ directory
         // from scratch (see Module::runnerTemplate()) — unable to ever
         // run in exactly the situation it exists to fix. The degraded
@@ -107,7 +107,7 @@ final class Runner
         );
     }
 
-    /** A value from app.php's returned config (name/version/env/modules/...). */
+    /** A value from manifest.php's returned config (name/version/env/modules/...). */
     public static function get(string $key, mixed $default = null): mixed
     {
         return self::config()[$key] ?? $default;
@@ -120,7 +120,7 @@ final class Runner
     }
 
     /**
-     * Every module app.php lists — resolved exactly once (a `'@name' =>
+     * Every module manifest.php lists — resolved exactly once (a `'@name' =>
      * 'version'` pair through PackageResolver, a plain class-string via
      * `new $class()`, or an already-built instance passed through as-is).
      * Kernel::registerModules() reuses this list rather than resolving
@@ -190,7 +190,7 @@ final class Runner
 
     /**
      * Forces a fresh compile and cache write regardless of `env` — the
-     * apc CLI's `build` command uses this to warm the cache ahead of
+     * gg CLI's `build` command uses this to warm the cache ahead of
      * traffic, instead of leaving the first real request to pay for it.
      *
      * @return list<array>
@@ -204,7 +204,7 @@ final class Runner
         return self::$routes = $compiled;
     }
 
-    /** Deletes the route cache file, if one exists. Used by `apc build --clean` and `apc clean`. */
+    /** Deletes the route cache file, if one exists. Used by `gg build --clean` and `gg clean`. */
     public static function clearRoutesCache(): bool
     {
         $path = self::routesCachePath();
@@ -226,8 +226,8 @@ final class Runner
     /**
      * Deletes the whole runner/ directory — not just its *.php files —
      * and everything under it, if it exists at all. The one place this
-     * removal logic lives; both `apc build --clean` (delete then
-     * regenerate) and `apc clean` (delete, full stop) call this instead
+     * removal logic lives; both `gg build --clean` (delete then
+     * regenerate) and `gg clean` (delete, full stop) call this instead
      * of each keeping their own copy.
      *
      * @return bool whether anything was actually removed
@@ -267,7 +267,7 @@ final class Runner
 
         foreach (self::modules() as $module) {
             foreach ($module->controllers() as $controllerClass) {
-                $compiled = [...$compiled, ...RouteCompiler::compile($controllerClass, $module->prefix())];
+                $compiled = [...$compiled, ...RouteCompiler::compile($controllerClass, $module->prefix(), $module->pagePrefix())];
             }
         }
 

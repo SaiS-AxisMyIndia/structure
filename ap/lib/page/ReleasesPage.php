@@ -5,7 +5,7 @@ use Gerogo\Runner;
 
 /**
  * A simple releases/changelog page — one real version (whatever
- * Runner::get('version') actually says in app.php, not a hardcoded
+ * Runner::get('version') actually says in manifest.php, not a hardcoded
  * number), described honestly by what's actually in this codebase
  * right now rather than a fabricated multi-version history. Extend the
  * $releases list below as real versions actually ship.
@@ -18,7 +18,7 @@ $releases = [
         'highlights' => [
             'Attribute-based routing, DI container, and a uniform Packet response envelope',
             'Stateless JWT sessions with a real access + refresh token flow',
-            'ProSql: a fluent query builder, a base ProRepo, and #[ProEntity]/#[Primary]/#[Link]/#[Timestamp]/#[Unique] attributes feeding an `apc build` schema sync (report/update/force via TABLE_WRITE)',
+            'ProSql: a fluent query builder, a base ProRepo, and #[ProEntity]/#[Primary]/#[Link]/#[Timestamp]/#[Unique] attributes feeding an `gg build` schema sync (report/update/force via TABLE_WRITE)',
             'Tester — a Swagger-style API explorer at /tester',
             'AppViewer — a live renderer for every Page-returning route, at /app-viewer',
         ],

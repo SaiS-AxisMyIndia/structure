@@ -7,7 +7,7 @@ namespace Gerogo;
 use RuntimeException;
 
 /**
- * Resolves an `app.php` `'@name' => 'version'` module entry to a Module
+ * Resolves a `manifest.php` `'@name' => 'version'` module entry to a Module
  * instance — always looked up under packages/, right alongside this
  * framework. Roughly a lightweight Maven/Gradle coordinate ("boot exactly
  * this declared version"), except the artifact is always a local path
@@ -16,7 +16,7 @@ use RuntimeException;
  * The module class itself is derived from the package's own
  * composer.json PSR-4 autoload prefix, by convention: a package
  * autoloading "Foo\\" is expected to declare "Foo\FooModule" — which is
- * exactly how paradigm/pro-sql (ProSql\ProSqlModule) and paradigm/session
+ * exactly how codesignificant/pro-sql (ProSql\ProSqlModule) and codesignificant/session
  * (Session\SessionModule) are already laid out.
  */
 final class PackageResolver
@@ -48,7 +48,7 @@ final class PackageResolver
             $found = $installedVersion ?? 'unknown';
 
             throw new RuntimeException(
-                "Module [@$name => $version] requested in app.php, but packages/$name declares version [$found].",
+                "Module [@$name => $version] requested in manifest.php, but packages/$name declares version [$found].",
             );
         }
 

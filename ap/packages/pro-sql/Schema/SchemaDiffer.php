@@ -47,7 +47,20 @@ final class SchemaDiffer
         return new TableDiff($entity, false, $missing, $changed, $extra);
     }
 
-    /** @param array{sqlType: string, nullable: bool} $actual */
+    /**
+     * @param array{sqlType: string, nullable: bool} $actual
+     *
+     * Only sqlType + nullable are compared — a #[Link]'s ON
+     * DELETE/UPDATE rule, a #[UniqueMap] group, and an int-valued
+     * #[Enum]'s CHECK/index are none of them column-level facts this
+     * method (or $actual, straight from information_schema.columns)
+     * even has access to, so adding one of those to an ALREADY-EXISTING
+     * column is invisible here: matches() reports "unchanged" and
+     * SchemaBuilder never retrofits it. A string-valued #[Enum] IS
+     * caught, though — its whole value list lives in $expected->sqlType
+     * itself (ENUM('a','b',...)), so widening it shows up as a genuine
+     * sqlType mismatch like any other type change.
+     */
     private static function matches(ColumnDefinition $expected, array $actual): bool
     {
         return self::normalize($expected->sqlType) === self::normalize($actual['sqlType'])

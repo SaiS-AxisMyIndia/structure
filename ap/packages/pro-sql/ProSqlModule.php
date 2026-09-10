@@ -15,7 +15,7 @@ use ProSql\Schema\SchemaBuilder;
  * way Spring Boot auto-configures a DataSource bean from
  * spring.datasource.* properties. Contributes no controllers.
  * Self-configuring, no constructor args — so it can be booted purely from
- * app.php's `'@pro-sql' => '1.0.0'` entry.
+ * manifest.php's `'@pro-sql' => '1.0.0'` entry.
  */
 class ProSqlModule extends Module
 {
@@ -32,7 +32,7 @@ class ProSqlModule extends Module
     }
 
     /**
-     * `apc build`'s entity-table sync — see SchemaBuilder's own docblock
+     * `gg build`'s entity-table sync — see SchemaBuilder's own docblock
      * for exactly what each TABLE_WRITE mode is/isn't allowed to do.
      * This is the ONLY place pro-sql's Connection/Schema classes get
      * reached from a build run — gerogo's BuildCommand just calls
@@ -44,7 +44,7 @@ class ProSqlModule extends Module
      *
      * A no-op — returns null, prints nothing — when runner/entities.php
      * is empty, so a project with no entities yet sees no schema output
-     * at all from `apc build`.
+     * at all from `gg build`.
      */
     public function build(): ?string
     {
@@ -56,18 +56,20 @@ class ProSqlModule extends Module
 
         $config = Runner::get('prosql');
         $connection = new Connection($config);
-        $tableWrite = $config['table_write'] ?? 'fixed';
+        $tableWrite = $config['table_write'] ?? 'migrate';
         $migrationsPath = Runner::get('base_path') . '/storage/migrations';
 
         $report = (new SchemaBuilder($connection, $tableWrite, $migrationsPath))->build($entityClasses);
 
         $summary = sprintf(
-            'Schema (TABLE_WRITE=%s): %d table(s) created, %d column(s) added, %d FK(s) added, %d complex change(s) deferred.',
+            'Schema (TABLE_WRITE=%s): %d table(s) created, %d column(s) added, %d FK(s) added, %d index(es) added, %d complex change(s) deferred, %d raw migration statement(s) run.',
             $tableWrite,
             $report->tablesCreated,
             $report->columnsAdded,
             $report->foreignKeysAdded,
+            $report->indexesAdded,
             $report->complexChangesDeferred,
+            $report->rawStatementsRun,
         );
 
         if ($report->migrationFile !== null) {
@@ -94,18 +96,21 @@ class ProSqlModule extends Module
             // $_ENV, which runner/runner.php already populated from .env.<env>
             // before this file is required.
 
-            // TABLE_WRITE governs how far `apc build`'s entity-table sync (see
+            // TABLE_WRITE governs how far `gg build`'s entity-table sync (see
             // ProSqlModule::build() / Schema\SchemaBuilder) is allowed to go —
-            // 'fixed' (default): report only, nothing touched in the database;
-            // 'update': safe/additive changes applied automatically; 'force': that
-            // plus complex/destructive ones too. Validated here, not left to fail
+            // 'update': safe/additive changes applied automatically; 'migrate'
+            // (default): report only, nothing touched in the database — every
+            // statement (dependency-ordered first, so linked tables come out in
+            // an order that's actually runnable) is written into the migration
+            // script instead; 'force': everything 'update' does, plus
+            // complex/destructive changes too. Validated here, not left to fail
             // confusingly wherever it's first read — a typo fatals the build
-            // immediately instead of silently behaving like 'fixed'.
-            $tableWrite = $_ENV['TABLE_WRITE'] ?? 'fixed';
+            // immediately instead of silently behaving like 'migrate'.
+            $tableWrite = $_ENV['TABLE_WRITE'] ?? 'migrate';
 
-            if (!in_array($tableWrite, ['fixed', 'update', 'force'], true)) {
+            if (!in_array($tableWrite, ['update', 'migrate', 'force'], true)) {
                 throw new InvalidArgumentException(
-                    "TABLE_WRITE must be one of: fixed, update, force; got \"$tableWrite\".",
+                    "TABLE_WRITE must be one of: update, migrate, force; got \"$tableWrite\".",
                 );
             }
 

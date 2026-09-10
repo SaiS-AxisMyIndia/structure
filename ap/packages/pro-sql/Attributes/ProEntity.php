@@ -29,7 +29,7 @@ use ReflectionClass;
  *   }
  *
  * Together with #[Primary]/#[Link]/#[Timestamp] on its properties, this
- * is what EntityScanner reads at build time (`apc build`'s table-diffing
+ * is what EntityScanner reads at build time (`gg build`'s table-diffing
  * step) — and, via of() below, what ProRepo::$entityClass reads at
  * RUNTIME too: a repo declares which entity it is once, instead of
  * redeclaring its table name (and, for a uuid primary key, its type —

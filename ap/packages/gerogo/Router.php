@@ -31,9 +31,20 @@ class Router
 
     /**
      * @param list<array{method: string, regex: string, controller: class-string, action: string, path: string, middleware: array}> $compiledRoutes
+     * @param array{0: class-string, 1: string, 2?: array<string, mixed>}|null $basePage
+     *     manifest.php's 'basePage' — [controller, action, defaults?] to fall
+     *     back to for a bare `GET /` that no compiled route already
+     *     answers (see dispatch()). The optional 3rd element pre-fills
+     *     $request->body for any key the request doesn't already carry —
+     *     enough for a mandatory getX() (no default of its own) on the
+     *     action to still resolve when reached via `/` with nothing to
+     *     read. Left null, `GET /` just 404s like any other unmatched path.
      */
-    public function __construct(private readonly Container $container, array $compiledRoutes = [])
-    {
+    public function __construct(
+        private readonly Container $container,
+        array $compiledRoutes = [],
+        private readonly ?array $basePage = null,
+    ) {
         $this->addRoutes($compiledRoutes);
     }
 
@@ -52,9 +63,9 @@ class Router
     }
 
     /** Convenience for a single controller with no precompiled table to hand in — compiles it on the spot. */
-    public function registerController(string $controllerClass, string $modulePrefix = ''): void
+    public function registerController(string $controllerClass, string $modulePrefix = '', ?string $pageModulePrefix = null): void
     {
-        $this->addRoutes(RouteCompiler::compile($controllerClass, $modulePrefix));
+        $this->addRoutes(RouteCompiler::compile($controllerClass, $modulePrefix, $pageModulePrefix));
     }
 
     public function dispatch(Request $request): mixed
@@ -92,6 +103,36 @@ class Router
 
                 return $this->runPipeline($route['middleware'], $request, $action);
             }
+        }
+
+        // A bare `GET /` with nothing else compiled to exactly that path
+        // (a #[PageController]'s own prefix is usually something like
+        // '/site', not '/') falls back to manifest.php's 'basePage' instead of
+        // going straight to the 404 below — the same idea as a plain web
+        // server serving index.html at its root. Configuring no basePage
+        // (the default) skips this entirely and `GET /` 404s like any
+        // other unmatched path, rendered via Page::failed() (see
+        // Kernel::handle()) — lib/default.html either way, just via a
+        // different route.
+        if ($this->basePage !== null && $request->method === 'GET' && $request->path === '/') {
+            [$controllerClass, $action] = $this->basePage;
+            $request->isPage = true;
+
+            // Optional 3rd element: defaults for whatever the action's
+            // own $request->body->getX(...) calls require — a bare `/`
+            // carries no body/query of its own, so a mandatory field
+            // (no default passed to getX()) would otherwise always 400
+            // here even though the exact same action works fine once a
+            // real caller supplies it. Only fills in keys the request
+            // doesn't already have — a real query string on `/?name=...`
+            // still wins.
+            foreach ($this->basePage[2] ?? [] as $key => $value) {
+                if (!$request->body->has($key)) {
+                    $request->body[$key] = $value;
+                }
+            }
+
+            return $this->container->make($controllerClass)->{$action}($request);
         }
 
         // No route matched at all — `$request->isPage` is still its

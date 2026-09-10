@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Web (webpack)",
+      "type": "npm",
+      "script": "web",
+      "isBackground": true,
+      // Keeps the task "running" (not failed/exited) for VS Code's purposes
+      // once webpack finishes its first compile, instead of the debugger's
+      // preLaunchTask waiting forever for the process to exit - it never
+      // does, since webpack-dev-server stays up serving requests.
+      "problemMatcher": {
+        "owner": "webpack",
+        "pattern": { "regexp": "^ERROR" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "webpack .* compil(e|ing)",
+          "endsPattern": "compiled (successfully|with \\d+ errors?) in \\d+ ms"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    }
+  ]
+}

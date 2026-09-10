@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Gerogo\Cli;
 
 /**
- * The `apc` CLI's dispatcher — this project's console, the same idea as
+ * The `gg` CLI's dispatcher — this project's console, the same idea as
  * Laravel's `artisan` or a Spring Boot actuator command: operational
  * commands that sit next to the app rather than behind an HTTP route.
  * Runner::boot() must already have run by the time run() is called (the
- * `apc` script does this before constructing this class).
+ * `gg` script does this before constructing this class).
  */
 final class Application
 {
@@ -42,7 +42,7 @@ final class Application
         }
 
         if (!isset(self::COMMANDS[$first])) {
-            fwrite(STDERR, "Unknown command [$first]. Run `apc --help` for usage.\n");
+            fwrite(STDERR, "Unknown command [$first]. Run `gg --help` for usage.\n");
 
             return 1;
         }
@@ -55,17 +55,17 @@ final class Application
     private function printHelp(): void
     {
         echo <<<HELP
-        apc — this project's CLI
+        gg — this project's CLI
 
-          apc -v, --version                       app + every package's version
-          apc start [host:port]                   clean + rebuild, then start PHP's built-in server (default host 127.0.0.1, port from .env's PORT, else 7070)
-          apc stop                                stop the ONE server a matching `apc start` began, wherever it's running
-          apc build                               regenerate runner/ in place, force-compile + cache the route table (deploy-time build step)
-          apc build -c, --clean                   delete the whole runner/ folder first, then build as above
-          apc clean                               delete the whole runner/ folder (and route cache) — no rebuild
-          apc ... -f, --flavour <name>            which .env.<name> to boot from — local, production, staging, or any other name (else real APP_ENV env var, else 'local')
-          apc install [module] [version]           no module (or `gerogo`): validate every module resolves (optionally against an expected app version)
-          apc install <module> [version]           any other module: show its info (optionally validate its version)
+          gg -v, --version                       app + every package's version
+          gg start [host:port]                   clean + rebuild, then start PHP's built-in server (default host 127.0.0.1, port from .env's PORT, else 7070)
+          gg stop                                stop the ONE server a matching `gg start` began, wherever it's running
+          gg build                               regenerate runner/ in place, force-compile + cache the route table (deploy-time build step)
+          gg build -c, --clean                   delete the whole runner/ folder first, then build as above
+          gg clean                               delete the whole runner/ folder (and route cache) — no rebuild
+          gg ... -f, --flavour <name>            which .env.<name> to boot from — local, production, staging, or any other name (else real APP_ENV env var, else 'local')
+          gg install [module] [version]           no module (or `gerogo`): validate every module resolves (optionally against an expected app version)
+          gg install <module> [version]           any other module: show its info (optionally validate its version)
 
         HELP;
     }

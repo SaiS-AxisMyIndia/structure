@@ -1,3 +1,7 @@
+- add base root for the pages like it should open the home page on localhost/ at '/' this I will config in Application.php and move this Application.php in /ap/
+
+- change apc to gg for cli
+
 >> create a rest-call in packages and add in module
 It has to be work like a api call (http, fetch, axios)
 in this also add all feature to call an api
@@ -7,15 +11,15 @@ add self method which means you can call from inside service if found else call 
 
 - return page is not allowed for RestController only Packet create another one for Page create PageController for page in tester also read accordingly in PageController return type should be Page
 
-// apc service:list
+## apc service:list
 apc service:start auth
 apc service:stop auth
 apc service:restart auth
 apc service:logs auth
 
-// apc start -production -all
+## apc start -production -all
 
->> in entity add default to set the default value - if default not set then it is mandatory. Give any suggestion and possible required features
+- in entity add default to set the default value - if default not set then it is mandatory. Give any suggestion and possible required features
 
 - remove microservices just flavours and port define
 

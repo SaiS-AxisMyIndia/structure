@@ -1,0 +1,52 @@
+{
+  // Uses VS Code's built-in JavaScript debugger ("node" type) - no extra
+  // extension needed, unlike the frontend's Android/iOS configs.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Nest (start:debug)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:debug"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      // `nest start --debug --watch` restarts the process itself on file
+      // changes (its own watch mode) - `restart` here is for the debugger
+      // to reconnect when that happens instead of just detaching.
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // For a `npm run start:debug` already running in a terminal (its
+      // default --debug port is 9229) - attaches instead of starting a
+      // second instance.
+      "name": "Attach to Nest process",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug Unit Tests (vitest)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "test:debug"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug E2E Tests (vitest)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vitest", "run", "--config", "./vitest.config.e2e.ts", "--inspect-brk", "--no-file-parallelism"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

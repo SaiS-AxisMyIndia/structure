@@ -1,15 +1,15 @@
 {
-    "name": "paradigm/gerogo-project",
+    "name": "codesignificant/gerogo-project",
     "description": "PHP project bootstrapped on a Spring-Boot-style micro-framework — packages/gerogo is the web framework, packages/pro-sql is the MySQL layer, packages/session is the session/middleware layer, packages/tester is the API explorer, src/ is the application",
     "type": "project",
     "license": "proprietary",
     "require": {
         "php": ">=8.1",
-        "paradigm/gerogo": "*",
-        "paradigm/pro-sql": "*",
-        "paradigm/session": "*",
-        "paradigm/tester": "*",
-        "paradigm/app-viewer": "*"
+        "codesignificant/gerogo": "*",
+        "codesignificant/pro-sql": "*",
+        "codesignificant/session": "*",
+        "codesignificant/tester": "*",
+        "codesignificant/app-viewer": "*"
     },
     "repositories": [
         { "type": "path", "url": "packages/gerogo" },
@@ -22,7 +22,10 @@
         "psr-4": {
             "App\\": "src/",
             "Lib\\Controllers\\": "lib/controllers/"
-        }
+        },
+        "classmap": [
+            "Application.php"
+        ]
     },
     "minimum-stability": "dev",
     "prefer-stable": true,

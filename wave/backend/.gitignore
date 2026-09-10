@@ -1,0 +1,8 @@
+node_modules/
+dist/
+
+# SQLite dev database (config/database/database.module.ts) - local state,
+# never committed.
+data/
+*.sqlite
+*.sqlite3

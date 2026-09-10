@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace ProSql\Schema;
 
+use BackedEnum;
 use LogicException;
+use ProSql\Attributes\Enum;
 use ProSql\Attributes\Link;
 use ProSql\Attributes\Primary;
 use ProSql\Attributes\PrimaryType;
@@ -13,6 +15,7 @@ use ProSql\Attributes\Timestamp;
 use ProSql\Attributes\Unique;
 use ProSql\Attributes\UniqueMap;
 use ReflectionClass;
+use ReflectionEnum;
 use ReflectionNamedType;
 use ReflectionProperty;
 use ReflectionUnionType;
@@ -26,6 +29,7 @@ use ReflectionUnionType;
  *
  *   - #[Primary('int'|'uuid'|'bigint')]   -> that column, PRIMARY KEY + (for int/bigint) AUTO_INCREMENT
  *   - #[Timestamp(current:, update:)]      -> a DATETIME column with the matching DEFAULT/ON UPDATE
+ *   - #[Enum([...])]                       -> see enumColumn(): ENUM(...) for a string-valued list, INT + CHECK for an int-valued one
  *   - #[Link('table.column')]              -> a normal column (typed off the property, like below) plus a foreign key
  *   - none of the above                    -> a plain column, SQL type mapped from the property's own PHP type
  *
@@ -35,17 +39,19 @@ use ReflectionUnionType;
  * combines too, but describes something no single ColumnDefinition can
  * hold on its own — see EntityDefinition::$uniqueGroups.
  *
- * V1 deliberately only understands string/int/float/bool (plus an
- * explicit `?Type`/`Type|null` for nullable) — no arrays, no objects,
- * no enums, no untyped properties. Anything else throws immediately
- * rather than silently guessing a column type. Likewise every entity
- * must declare EXACTLY ONE #[Primary] property — no composite keys yet.
+ * V1 deliberately only understands string/int/float/bool, a
+ * string-backed enum (-> MySQL's own ENUM(...), one quoted case value
+ * per member — see sqlTypeForEnum()), plus an explicit `?Type`/`Type|null`
+ * for nullable — no arrays, no plain objects, no int-backed or unbacked
+ * enums, no untyped properties. Anything else throws immediately rather
+ * than silently guessing a column type. Likewise every entity must
+ * declare EXACTLY ONE #[Primary] property — no composite keys yet.
  */
 final class EntityScanner
 {
     /**
      * @param class-string $class
-     * @param list<class-string> $allEntityClasses every entity `apc
+     * @param list<class-string> $allEntityClasses every entity `gg
      *        build` knows about (Runner::get('entities')) — needed
      *        ONLY to resolve a #[Link] column's SQL type against
      *        whatever the REFERENCED entity's own #[Primary] actually
@@ -118,6 +124,12 @@ final class EntityScanner
             return self::timestampColumn($name, $timestampAttributes[0]->newInstance(), $unique);
         }
 
+        $enumAttributes = $property->getAttributes(Enum::class);
+
+        if ($enumAttributes !== []) {
+            return self::enumColumn($class, $property, $enumAttributes[0]->newInstance(), $unique);
+        }
+
         [$sqlType, $nullable] = self::sqlTypeFor($class, $property);
 
         $linkAttributes = $property->getAttributes(Link::class);
@@ -139,7 +151,12 @@ final class EntityScanner
                 name: $name,
                 sqlType: $sqlType,
                 nullable: $nullable,
-                references: ['table' => $link->table, 'column' => $link->column],
+                references: [
+                    'table' => $link->table,
+                    'column' => $link->column,
+                    'onDelete' => $link->onDelete?->value,
+                    'onUpdate' => $link->onUpdate?->value,
+                ],
                 unique: $unique,
             );
         }
@@ -199,6 +216,60 @@ final class EntityScanner
             // one MySQL's own lastInsertId()-less INSERT can't hand back.
             PrimaryType::Uuid => new ColumnDefinition($name, 'CHAR(36)', primary: true, unique: $unique, uuidVersion: $primary->version),
         };
+    }
+
+    /**
+     * #[Enum]'s values decide the SQL shape, same split as
+     * sqlTypeForEnum() for a real PHP enum — see that attribute's own
+     * docblock for why: a STRING-valued list becomes MySQL's own
+     * ENUM(...); an INT-valued one keeps the column a real INT and adds
+     * a `CHECK (... IN (...))` constraint instead of ENUM(...), since
+     * ENUM sorts by definition position, not the label's numeric value.
+     *
+     * Either way the property's own declared type must actually MATCH
+     * (string/?string for a string-valued #[Enum], int/?int for an
+     * int-valued one) — reusing sqlTypeFor() both derives $nullable and
+     * gets this check for free, since a mismatched type simply won't
+     * equal the SQL type #[Enum] itself demands.
+     */
+    private static function enumColumn(string $class, ReflectionProperty $property, Enum $enum, bool $unique): ColumnDefinition
+    {
+        $name = $property->getName();
+        $label = "{$class}::\${$name}";
+        [$declaredSqlType, $nullable] = self::sqlTypeFor($class, $property);
+
+        if ($enum->isStringBacked()) {
+            if ($declaredSqlType !== 'VARCHAR(255)') {
+                throw new LogicException(
+                    "$label has a string-valued #[Enum] but isn't typed `string`/`?string` "
+                    . "(resolved to SQL type \"$declaredSqlType\" instead).",
+                );
+            }
+
+            return new ColumnDefinition(
+                name: $name,
+                sqlType: 'ENUM(' . self::quotedEnumValues($enum->values) . ')',
+                nullable: $nullable,
+                unique: $unique,
+                index: $enum->index,
+            );
+        }
+
+        if ($declaredSqlType !== 'INT') {
+            throw new LogicException(
+                "$label has an integer-valued #[Enum] but isn't typed `int`/`?int` "
+                . "(resolved to SQL type \"$declaredSqlType\" instead).",
+            );
+        }
+
+        return new ColumnDefinition(
+            name: $name,
+            sqlType: 'INT',
+            nullable: $nullable,
+            unique: $unique,
+            checkValues: $enum->values,
+            index: $enum->index,
+        );
     }
 
     private static function timestampColumn(string $name, Timestamp $timestamp, bool $unique): ColumnDefinition
@@ -313,10 +384,72 @@ final class EntityScanner
             'int' => 'INT',
             'float' => 'DOUBLE',
             'bool' => 'TINYINT(1)',
-            default => throw new LogicException(
-                "$label has type \"$typeName\", which EntityScanner doesn't know how to map to a SQL column "
-                . '(supported: string, int, float, bool — or mark it #[Primary]/#[Link]/#[Timestamp]).',
-            ),
+            default => enum_exists($typeName)
+                ? self::sqlTypeForEnum($label, $typeName)
+                : throw new LogicException(
+                    "$label has type \"$typeName\", which EntityScanner doesn't know how to map to a SQL column "
+                    . '(supported: string, int, float, bool, a string-backed enum — or mark it #[Primary]/#[Link]/#[Timestamp]).',
+                ),
         };
+    }
+
+    /**
+     * A string-backed enum maps to MySQL's own ENUM(...) type, one
+     * quoted case value per member:
+     *
+     *   enum ProductStatus: string { case Draft = 'draft'; case Published = 'published'; }
+     *   // -> ENUM('draft','published')
+     *
+     * No space after each comma — deliberately matching MySQL's own
+     * canonical COLUMN_TYPE rendering exactly (confirmed against a real
+     * server), since SchemaDiffer::matches() compares this string
+     * against that verbatim (after only upper-casing + whitespace
+     * collapsing — see its own docblock on why VARCHAR/CHAR length
+     * isn't stripped either): a stray space here would make every
+     * enum column look "changed" on every single build, forever.
+     *
+     * Only a STRING-backed enum is supported — an int-backed or
+     * unbacked enum has no literal value list ENUM(...) could use, and
+     * silently falling back to a plain INT would throw away the enum's
+     * own labels, which defeats the point of declaring one.
+     */
+    private static function sqlTypeForEnum(string $label, string $enumClass): string
+    {
+        $reflection = new ReflectionEnum($enumClass);
+
+        if (!$reflection->isBacked() || (string) $reflection->getBackingType() !== 'string') {
+            throw new LogicException(
+                "$label is enum \"$enumClass\", but only a STRING-backed enum (`enum X: string { ... }`) "
+                . 'maps to a SQL column — an int-backed or unbacked enum has no literal value ENUM(...) can use.',
+            );
+        }
+
+        $cases = $enumClass::cases();
+
+        if ($cases === []) {
+            throw new LogicException("$label is enum \"$enumClass\", which declares no cases — ENUM(...) needs at least one.");
+        }
+
+        $values = array_map(static fn (BackedEnum $case): string => (string) $case->value, $cases);
+
+        return 'ENUM(' . self::quotedEnumValues($values) . ')';
+    }
+
+    /**
+     * Shared by sqlTypeForEnum() (a real PHP enum's cases) and
+     * enumColumn() (#[Enum]'s own $values) — the exact same quoting
+     * rule either way, since ENUM(...) doesn't care which path produced
+     * its value list. No space after each comma — see sqlTypeForEnum()'s
+     * own docblock for why that matters (SchemaDiffer compares this
+     * text verbatim against MySQL's own canonical rendering).
+     *
+     * @param list<string> $values
+     */
+    private static function quotedEnumValues(array $values): string
+    {
+        return implode(',', array_map(
+            static fn (string $value): string => "'" . str_replace("'", "''", $value) . "'",
+            $values,
+        ));
     }
 }

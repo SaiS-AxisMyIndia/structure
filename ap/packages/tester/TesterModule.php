@@ -13,7 +13,7 @@ use Gerogo\Runner;
  * when Runner::get('tester')['enabled'] says so (runner/tester.php,
  * TESTER_ENABLED in .env). Binds nothing into the container; there's
  * nothing to configure beyond that one switch. Self-configuring, no
- * constructor args — so it can be booted purely from app.php's
+ * constructor args — so it can be booted purely from manifest.php's
  * `'@tester' => '1.0.0'` entry.
  */
 class TesterModule extends Module

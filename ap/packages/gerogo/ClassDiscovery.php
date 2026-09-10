@@ -11,7 +11,7 @@ use RecursiveIteratorIterator;
 
 /**
  * Finds every class under a set of directories that carries a given
- * attribute — the mechanism behind `apc build --clean` regenerating
+ * attribute — the mechanism behind `gg build --clean` regenerating
  * runner/controllers.php / runner/entities.php from what's actually in
  * the filesystem (via #[RestController]/#[ProEntity]) instead of a
  * hand-maintained list that can drift out of sync with reality, or get

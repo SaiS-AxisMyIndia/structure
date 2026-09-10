@@ -6,7 +6,7 @@ namespace Gerogo\Cli;
 
 /**
  * One spawned `php -S` server process, tracked well enough that a LATER,
- * completely separate `apc stop` invocation — a different terminal, a
+ * completely separate `gg stop` invocation — a different terminal, a
  * deploy script, anything else on this machine — can find and stop it.
  * Shared by StartCommand (spawning + supervising) and StopCommand
  * (stopping) — the same pidfile naming (by flavour) is what ties both
@@ -121,7 +121,7 @@ final class AppProcess
     }
 
     /**
-     * Blocks until Ctrl+C (or a SIGTERM from `apc stop`), relaying the
+     * Blocks until Ctrl+C (or a SIGTERM from `gg stop`), relaying the
      * child's stdout/stderr to this terminal, then terminates it (if
      * still running) and cleans up its pidfile.
      *

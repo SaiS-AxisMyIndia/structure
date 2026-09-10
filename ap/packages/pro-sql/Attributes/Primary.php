@@ -69,7 +69,7 @@ class Primary
      * instead of a repo having to redeclare it by hand and risk
      * drifting out of sync. Doesn't enforce "exactly one" the way
      * EntityScanner does at build time (the first one found wins) — a
-     * real `apc build` would already have caught more than one.
+     * real `gg build` would already have caught more than one.
      */
     public static function of(string $entityClass): ?self
     {

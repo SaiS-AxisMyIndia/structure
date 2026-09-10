@@ -6,6 +6,7 @@ namespace ProSql\Attributes;
 
 use Attribute;
 use InvalidArgumentException;
+use ValueError;
 
 /**
  * Marks a property as a foreign key into another entity's column — the
@@ -21,14 +22,28 @@ use InvalidArgumentException;
  * confusing failure wherever $table/$column get read later. As with
  * every other ProSql attribute, that only happens once something
  * actually reflects on and instantiates it — see ProEntity's docblock.
+ *
+ * $onDelete/$onUpdate optionally set the constraint's `ON DELETE`/`ON
+ * UPDATE` behavior (any ReferentialAction case, lowercase or upper —
+ * validated the same lazy way $type is on Primary):
+ *
+ *   #[Link('users.id', onDelete: 'cascade')]
+ *   public string $ownerId;
+ *
+ * Left null (the default, and the only option before this), the
+ * constraint carries neither clause — MySQL's own implicit default,
+ * RESTRICT.
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
 class Link
 {
     public readonly string $table;
     public readonly string $column;
+    public readonly ?ReferentialAction $onDelete;
+    public readonly ?ReferentialAction $onUpdate;
 
-    public function __construct(public readonly string $reference)
+    /** @throws ValueError if $onDelete/$onUpdate is given and isn't one of ReferentialAction's cases */
+    public function __construct(public readonly string $reference, ?string $onDelete = null, ?string $onUpdate = null)
     {
         $parts = explode('.', $reference);
 
@@ -39,5 +54,7 @@ class Link
         }
 
         [$this->table, $this->column] = $parts;
+        $this->onDelete = $onDelete === null ? null : ReferentialAction::from(strtoupper($onDelete));
+        $this->onUpdate = $onUpdate === null ? null : ReferentialAction::from(strtoupper($onUpdate));
     }
 }

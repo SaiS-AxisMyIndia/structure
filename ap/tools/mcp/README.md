@@ -1,7 +1,7 @@
 # gerogo's MCP dev-tool server
 
 An [MCP](https://modelcontextprotocol.io) server that exposes this
-project's own `apc` CLI (plus its compiled route table) as tools an MCP
+project's own `gg` CLI (plus its compiled route table) as tools an MCP
 client — Claude Desktop, Claude Code, any other MCP-speaking assistant —
 can call while you're developing gerogo. It's a plain PHP script (no
 Node, no extra dependency), talking JSON-RPC 2.0 over stdio — the same
@@ -9,8 +9,8 @@ protocol every other MCP server uses, just hand-rolled here instead of
 pulling in an SDK.
 
 **This is a dev tool, not part of the app.** It never gets booted by
-`app.php`, never appears in `Runner::modules()`, and adds nothing to
-what a real HTTP request goes through — it just shells out to `apc`
+`manifest.php`, never appears in `Runner::modules()`, and adds nothing to
+what a real HTTP request goes through — it just shells out to `gg`
 (or, for `list_routes`, boots `Runner` in a short-lived child process)
 and hands the result back to whatever MCP client asked.
 
@@ -58,16 +58,16 @@ Restart the client afterward — MCP servers are only started at launch.
 | Tool | What it does |
 |---|---|
 | `list_routes` | Every compiled route (method, path, controller, action) — the same table `Router` dispatches from. |
-| `apc_build` | `apc build` — regenerate `runner/` in place, compile + cache routes, sync the schema. `clean: true` for `apc build --clean`. |
-| `apc_install` | `apc install [module] [version]` — validate the whole app, or one `packages/<name>`. |
-| `apc_clean` | `apc clean` — wipe `runner/` and the route cache, no rebuild. |
-| `apc_start` | `apc start`, launched **detached** — the tool call returns as soon as the server has bound (or reports why it didn't); the server keeps running after. |
-| `apc_stop` | `apc stop` — stop a server `apc_start` began, wherever it's running. |
+| `gg_build` | `gg build` — regenerate `runner/` in place, compile + cache routes, sync the schema. `clean: true` for `gg build --clean`. |
+| `gg_install` | `gg install [module] [version]` — validate the whole app, or one `packages/<name>`. |
+| `gg_clean` | `gg clean` — wipe `runner/` and the route cache, no rebuild. |
+| `gg_start` | `gg start`, launched **detached** — the tool call returns as soon as the server has bound (or reports why it didn't); the server keeps running after. |
+| `gg_stop` | `gg stop` — stop a server `gg_start` began, wherever it's running. |
 
-`apc_build`/`apc_install`/`apc_start`/`apc_stop` all take an optional
+`gg_build`/`gg_install`/`gg_start`/`gg_stop` all take an optional
 `flavour` argument (`local`/`production`/`staging`, or any other name) —
 see the root README's "Flavours" section for what that means. Leaving it
-out uses whatever `apc` itself defaults to (a real `APP_ENV` env var,
+out uses whatever `gg` itself defaults to (a real `APP_ENV` env var,
 else `local`).
 
 ## Manually poking at it
@@ -80,12 +80,12 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | php mcp-server
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_routes","arguments":{}}}' | php mcp-server
 ```
 
-## Why `apc_start` doesn't just shell out like the others
+## Why `gg_start` doesn't just shell out like the others
 
-`apc start` never exits on its own — it runs the server in the
-foreground until `Ctrl+C`/`apc stop`. Waiting for it the way every other
+`gg start` never exits on its own — it runs the server in the
+foreground until `Ctrl+C`/`gg stop`. Waiting for it the way every other
 tool here does (`proc_close()`, which blocks until the child exits)
-would hang the tool call forever. `apc_start` instead launches it via a
+would hang the tool call forever. `gg_start` instead launches it via a
 detached `nohup ... &`, waits ~1.5s to see whether it actually bound
 successfully, and returns either way — the server itself is unaffected
 by whether this MCP server process is still running.
@@ -97,7 +97,7 @@ working directory) made `shell_exec()` block forever, even though the
 exact same line runs instantly from an interactive shell. Bash forks an
 extra subshell to background a multi-command job, and that subshell
 doesn't release `popen()`'s own pipe until *it* exits — which, for a
-server meant to keep running, is never. `apc_start` avoids this by
+server meant to keep running, is never. `gg_start` avoids this by
 never needing `cd` in the first place (every path it passes is already
 absolute).
 
@@ -107,7 +107,7 @@ Add one entry to `GerogoTools::definitions()` (name, description, a
 JSON Schema `inputSchema`) and one arm to the `match` in
 `GerogoTools::call()`. Return a plain string — `McpServer` wraps it in
 the `{content: [{type: "text", text: ...}]}` shape MCP expects, and
-setting `isError` from whether your method threw. Shell out to `apc`
-via `runApc()` if the capability already exists there; only reach for a
-standalone script like `list-routes.php` when nothing in `apc` already
+setting `isError` from whether your method threw. Shell out to `gg`
+via `runGg()` if the capability already exists there; only reach for a
+standalone script like `list-routes.php` when nothing in `gg` already
 does what you need.
