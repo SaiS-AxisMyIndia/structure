@@ -17,6 +17,6 @@ async function bootstrap() {
   // hand-building { success, data } itself.
   app.useGlobalInterceptors(new PacketInterceptor());
   app.useGlobalFilters(new PacketExceptionFilter());
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 5050);
 }
 await bootstrap();

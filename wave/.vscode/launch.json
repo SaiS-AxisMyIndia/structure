@@ -30,7 +30,7 @@
       "name": "Run Web",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:8080",
+      "url": "http://localhost:4040",
       "webRoot": "${workspaceFolder}",
       // Starts `npm run web` (webpack-dev-server) automatically - see
       // .vscode/tasks.json - so hitting Run/F5 here doesn't require a

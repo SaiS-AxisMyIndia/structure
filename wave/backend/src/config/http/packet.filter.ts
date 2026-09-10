@@ -1,6 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import type { Response } from 'express';
-import { Packet, packetBody } from './packet.js';
+import { finalizeResponse, Packet } from './packet.js';
 
 // Registered globally in main.ts - catches everything a guard/pipe/service
 // throws (an HttpException raised deliberately - UnauthorizedException,
@@ -28,8 +28,8 @@ export class PacketExceptionFilter implements ExceptionFilter {
       this.logger.error(exception instanceof Error ? exception.stack : exception);
     }
 
-    const packet = Packet.failed(this.extractMessage(exception), status, status);
-    response.status(packet.httpStatus).json(packetBody(packet));
+    const { body, httpStatus } = finalizeResponse(Packet.failed(this.extractMessage(exception), status, status));
+    response.status(httpStatus).json(body);
   }
 
   private extractMessage(exception: unknown): string {

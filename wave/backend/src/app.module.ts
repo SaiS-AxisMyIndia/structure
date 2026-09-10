@@ -7,8 +7,8 @@ import { RazorpayModule } from './config/razorpay/razorpay.module.js';
 import { MailModule } from './config/mail/mail.module.js';
 import { SmsModule } from './config/sms/sms.module.js';
 import { MiddlewaresModule } from './config/middlewares/middlewares.module.js';
-import { CoreAppModule } from './core/app/app.module.js';
 import { CoreAuthModule } from './config/modules/auth.module.js';
+import { CoreAdminAuthModule } from './config/modules/admin-auth.module.js';
 
 // Composition root only - route/business logic lives in core/, 3rd-party
 // integrations and shared middleware live in config/. This file just wires
@@ -21,8 +21,8 @@ import { CoreAuthModule } from './config/modules/auth.module.js';
     MailModule,
     SmsModule,
     MiddlewaresModule,
-    CoreAppModule,
     CoreAuthModule,
+    CoreAdminAuthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

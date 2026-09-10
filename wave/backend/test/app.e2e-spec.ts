@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { PacketInterceptor } from '../src/config/http/packet.interceptor.js';
+import { PacketExceptionFilter } from '../src/config/http/packet.filter.js';
 
-describe('AppController (e2e)', () => {
+describe('AppModule (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
@@ -13,14 +15,22 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    // Mirrors main.ts's own bootstrap() - this app instance is built by
+    // hand (not via NestFactory.create + main.ts), so none of that applies
+    // automatically.
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalInterceptors(new PacketInterceptor());
+    app.useGlobalFilters(new PacketExceptionFilter());
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  it('rejects a protected route with no bearer token', () => {
     return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+      .post('/user/v1/auth/logout')
+      .expect(401)
+      .expect(({ body }) => {
+        expect(body.success).toBe(false);
+      });
   });
 
   afterEach(async () => {

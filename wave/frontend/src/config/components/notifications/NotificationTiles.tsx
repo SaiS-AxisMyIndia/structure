@@ -1,0 +1,345 @@
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppColors } from '../../theme/AppColors';
+import { Themer } from '../../theme/Themer';
+import { ImageLoader } from '../images/ImageLoader';
+import { SvgIcon } from '../images/SvgIcon';
+import { SvgIcons } from '../images/svg_icons';
+import { AAudioPlayer } from '../players/AAudioPlayer';
+import { AVideoPlayer } from '../players/AVideoPlayer';
+import { Routes } from '../../routes/registry';
+import { DateFormatter } from '../../utils/DateFormatter';
+import {
+  AudioNotification,
+  BannerNotification,
+  ImageNotification,
+  LogoNotification,
+  MessageNotification,
+  NotificationItem,
+  NotificationStatus,
+  VideoNotification,
+} from './NotificationModel';
+
+// Default press behavior for every notification kind: follow its own
+// `route` (a plain route path, or an `<Internal>`/`<External>` URL) - see
+// Routes.deepLink(). Callers only need to override onPress when they want
+// something other than that.
+function pressNotification(route?: string) {
+  Routes.deepLink(route);
+}
+
+const ASPECT_RATIO = 16 / 9;
+
+type NotificationTileFrameProps = {
+  status: NotificationStatus;
+  time: string;
+  onPress?: () => void;
+  // Rendered above the clickable content, outside the navigation touchable
+  // - e.g. a video thumbnail/player with its own play button and controls.
+  beforeContent?: React.ReactNode;
+  // Rendered below the clickable content (but still above the footer),
+  // also outside the navigation touchable - e.g. an inline audio player.
+  afterContent?: React.ReactNode;
+  // The navigable part of the card: title/description/etc. Kept as a
+  // separate touchable from `beforeContent`/`afterContent` on purpose - the
+  // whole card used to be one big Pressable wrapping the play button too,
+  // and a quick double-tap on the button (which swaps its own subtree
+  // while mid-gesture, e.g. thumbnail -> player) could confuse RN's touch
+  // responder and let the release land on the card's Pressable instead,
+  // navigating away while the button was still loading. There's simply no
+  // navigating Pressable behind the media area anymore, so that can't happen.
+  children: React.ReactNode;
+};
+
+function NotificationTileFrame({ status, time, onPress, beforeContent, afterContent, children }: NotificationTileFrameProps) {
+  return (
+    <View style={[styles.card, Themer.shadow()]}>
+      {beforeContent}
+      <Pressable onPress={onPress}>{children}</Pressable>
+      {afterContent}
+      <Pressable onPress={onPress} style={styles.footer}>
+        <Text style={status === 'new' ? styles.statusNew : styles.statusRead}>
+          {status === 'new' ? 'New' : 'Read'}
+        </Text>
+        <View style={styles.timeRow}>
+          <Text style={styles.time}>{DateFormatter.smart(time)}</Text>
+          <SvgIcon icon={SvgIcons.chevronRight} size={16} />
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
+export function BannerNotificationTile({
+  title,
+  description,
+  image,
+  status,
+  time,
+  route,
+  onPress,
+}: BannerNotification & { onPress?: () => void }) {
+  return (
+    <NotificationTileFrame status={status} time={time} onPress={onPress ?? (() => pressNotification(route))}>
+      <ImageLoader source={{ uri: image }} style={styles.bannerImage} aspectRatio={ASPECT_RATIO} borderRadius={10} />
+      <Text style={styles.title}>{title}</Text>
+      {!!description && <Text style={styles.description}>{description}</Text>}
+    </NotificationTileFrame>
+  );
+}
+
+
+export function VideoNotificationsTile({
+  title,
+  description,
+  thumbnail,
+  url,
+  source,
+  status,
+  time,
+  route,
+  onPress,
+  isVisible = true,
+}: VideoNotification & { onPress?: () => void; isVisible?: boolean }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const player = (
+    <View style={styles.videoPlayerWrap}>
+      {isPlaying ? (
+        <AVideoPlayer
+          source={url}
+          sourceType={source}
+          aspectRatio={ASPECT_RATIO}
+          autoPlay
+          isActive={isVisible}
+        />
+      ) : (
+        <View style={[styles.imageWrap, { aspectRatio: ASPECT_RATIO }, Themer.iosRadius(10)]}>
+          <ImageLoader source={{ uri: thumbnail }} style={styles.videoImage} aspectRatio={ASPECT_RATIO} />
+          <Pressable style={styles.playButton} onPress={() => setIsPlaying(true)}>
+            <SvgIcon icon={SvgIcons.play} size={20} />
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+
+  return (
+    <NotificationTileFrame
+      status={status}
+      time={time}
+      onPress={onPress ?? (() => pressNotification(route))}
+      beforeContent={player}
+    >
+      <Text style={styles.title}>{title}</Text>
+      {!!description && <Text style={styles.description}>{description}</Text>}
+    </NotificationTileFrame>
+  );
+}
+
+export function ImageNotificatonTile({
+  title,
+  description,
+  thumbnail,
+  status,
+  time,
+  route,
+  onPress,
+}: ImageNotification & { onPress?: () => void }) {
+  return (
+    <NotificationTileFrame status={status} time={time} onPress={onPress ?? (() => pressNotification(route))}>
+      <View style={styles.row}>
+        <ImageLoader source={{ uri: thumbnail }} style={styles.thumbnail} aspectRatio={ASPECT_RATIO} borderRadius={8} />
+        <View style={styles.textCol}>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+          {!!description && (
+            <Text style={styles.description} numberOfLines={2}>
+              {description}
+            </Text>
+          )}
+        </View>
+      </View>
+    </NotificationTileFrame>
+  );
+}
+
+export function LogoNotificationTile({
+  title,
+  description,
+  logo,
+  status,
+  time,
+  route,
+  onPress,
+}: LogoNotification & { onPress?: () => void }) {
+  return (
+    <NotificationTileFrame status={status} time={time} onPress={onPress ?? (() => pressNotification(route))}>
+      <View style={styles.row}>
+        <ImageLoader source={{ uri: logo }} style={styles.logo} />
+        <View style={styles.textCol}>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+          {!!description && (
+            <Text style={styles.description} numberOfLines={2}>
+              {description}
+            </Text>
+          )}
+        </View>
+      </View>
+    </NotificationTileFrame>
+  );
+}
+
+export function MessageNotificationTile({
+  title,
+  description,
+  status,
+  time,
+  route,
+  onPress,
+}: MessageNotification & { onPress?: () => void }) {
+  return (
+    <NotificationTileFrame status={status} time={time} onPress={onPress ?? (() => pressNotification(route))}>
+      <Text style={styles.title}>{title}</Text>
+      {!!description && <Text style={styles.description}>{description}</Text>}
+    </NotificationTileFrame>
+  );
+}
+
+export function AudioNotificationTile({
+  title,
+  description,
+  audio,
+  status,
+  time,
+  route,
+  onPress,
+  isVisible = true,
+}: AudioNotification & { onPress?: () => void; isVisible?: boolean }) {
+  return (
+    <NotificationTileFrame
+      status={status}
+      time={time}
+      onPress={onPress ?? (() => pressNotification(route))}
+      afterContent={
+        <View style={styles.audioPlayerWrap}>
+          <AAudioPlayer source={audio} isActive={isVisible} />
+        </View>
+      }
+    >
+      <Text style={styles.title}>{title}</Text>
+      {!!description && <Text style={styles.description}>{description}</Text>}
+    </NotificationTileFrame>
+  );
+}
+
+export function renderNotificationTile(item: NotificationItem, isVisible: boolean) {
+  switch (item.kind) {
+    case 'banner':
+      return <BannerNotificationTile {...item} />;
+    case 'video':
+      return <VideoNotificationsTile {...item} isVisible={isVisible} />;
+    case 'image':
+      return <ImageNotificatonTile {...item} />;
+    case 'logo':
+      return <LogoNotificationTile {...item} />;
+    case 'message':
+      return <MessageNotificationTile {...item} />;
+    case 'audio':
+      return <AudioNotificationTile {...item} isVisible={isVisible} />;
+  }
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: AppColors.white,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    padding: 12,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  statusNew: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.primary,
+  },
+  statusRead: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: AppColors.neutral300,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  time: {
+    fontSize: 13,
+    color: AppColors.neutral400,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AppColors.neutral500,
+  },
+  description: {
+    fontSize: 13,
+    color: AppColors.neutral400,
+    marginTop: 2,
+  },
+  bannerImage: {
+    width: '100%',
+    marginBottom: 10,
+  },
+  videoPlayerWrap: {
+    marginBottom: 10,
+  },
+  imageWrap: {
+    width: '100%',
+  },
+  videoImage: {
+    width: '100%',
+  },
+  playButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 52,
+    height: 52,
+    marginTop: -26,
+    marginLeft: -26,
+    borderRadius: 26,
+    backgroundColor: AppColors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  thumbnail: {
+    width: 56,
+    height: 56,
+  },
+  textCol: {
+    flex: 1,
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  audioPlayerWrap: {
+    marginTop: 12,
+  },
+});

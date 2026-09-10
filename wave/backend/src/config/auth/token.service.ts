@@ -9,10 +9,12 @@ import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 // instead of casting inline with no explanation.
 type ExpiresIn = NonNullable<JwtSignOptions['expiresIn']>;
 
-// Whatever a caller wants encoded into the token - `sub` (subject, i.e. the
-// user id) is the one field every payload is expected to carry, everything
-// else is feature-specific (e.g. a role).
-export type TokenPayload = { sub: string; [key: string]: unknown };
+// Whatever a caller wants encoded into the token - kept deliberately
+// minimal (id/role/did, not e.g. mail/phone - a JWT is base64, not
+// encrypted, so anything in here is readable by whoever holds the token).
+// `id`/`role`/`did` are the fields every payload is expected to carry
+// (see AuthService.verifyOtp); anything else is feature-specific.
+export type TokenPayload = { id: string; role: string; did: string; [key: string]: unknown };
 
 export type SessionTokens = {
   accessToken: string;
@@ -46,11 +48,14 @@ export class TokenService {
   }
 
   signAccessToken(payload: TokenPayload): string {
-    return this.jwtService.sign(payload, { secret: this.accessSecret, expiresIn: this.accessExpiresIn });
+    // notBefore: 0 - not needed functionally (a token with no `nbf` is
+    // already valid immediately), but makes the claim actually appear in
+    // the decoded payload rather than being silently absent.
+    return this.jwtService.sign(payload, { secret: this.accessSecret, expiresIn: this.accessExpiresIn, notBefore: 0 });
   }
 
   signRefreshToken(payload: TokenPayload): string {
-    return this.jwtService.sign(payload, { secret: this.refreshSecret, expiresIn: this.refreshExpiresIn });
+    return this.jwtService.sign(payload, { secret: this.refreshSecret, expiresIn: this.refreshExpiresIn, notBefore: 0 });
   }
 
   // What a login/OTP-verify/refresh endpoint hands back to the client -
